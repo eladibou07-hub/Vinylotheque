@@ -75,6 +75,7 @@
     <button id="exportJsonBtn">Sauvegarde JSON</button>
     <button id="importJsonBtn">Restaurer JSON</button>
     <button id="exportCsvBtn">Exporter CSV</button>
+    <button id="exportPdfBtn">Catalogue PDF</button>
     <input id="importFile" type="file" accept="application/json,.json" hidden>
     <span>Les données de collection restent sur cet appareil.</span>
   </footer>
@@ -99,6 +100,7 @@
         <label>Style<input id="style" placeholder="Hard Rock, New Wave, Synth-pop…"></label>
         <label>Label<input id="label" placeholder="EMI"></label>
         <label>Pays<input id="country" placeholder="France"></label>
+        <label>Emplacement physique<input id="location" placeholder="Meuble salon - Bac 2"></label>
         <label>Référence / Cat. No.<input id="catno"></label>
         <label>Code-barres<input id="barcode" inputmode="numeric"></label>
         <label>Discogs ID<input id="discogsId" inputmode="numeric"></label>
@@ -177,6 +179,7 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js"></script>\n  <script src="features.js"></script>
+  <script src="app.js"></script>
+  <script src="features.js"></script>
 </body>
 </html>

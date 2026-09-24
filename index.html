@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111111">
+  <title>Vinylothèque</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">MA COLLECTION</p>
+      <h1>Vinylothèque</h1>
+    </div>
+    <div class="header-actions">
+      <button id="installBtn" class="btn secondary" hidden>Installer</button>
+      <button id="settingsBtn" class="icon-btn" aria-label="Réglages">⚙️</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <h2>Mes vinyles</h2>
+        <p>Ajoute un disque manuellement ou retrouve automatiquement son édition et sa pochette avec Discogs.</p>
+      </div>
+      <div class="hero-actions">
+        <button id="discogsBtn" class="btn primary">🔎 Rechercher sur Discogs</button>
+        <button id="scanBtn" class="btn secondary">▦ Scanner un code-barres</button>
+        <button id="addBtn" class="btn secondary">＋ Ajouter manuellement</button>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="Statistiques">
+      <article><strong id="statTotal">0</strong><span>vinyles</span></article>
+      <article><strong id="statArtists">0</strong><span>artistes</span></article>
+      <article><strong id="statCountries">0</strong><span>pays</span></article>
+      <article><strong id="statYears">—</strong><span>période</span></article>
+    </section>
+
+    <section class="toolbar">
+      <label class="search">
+        <span>⌕</span>
+        <input id="filterText" type="search" placeholder="Artiste, album, label, référence…">
+      </label>
+      <select id="filterFormat" aria-label="Filtrer par format">
+        <option value="">Tous les formats</option>
+      </select>
+      <select id="sortBy" aria-label="Trier">
+        <option value="added-desc">Ajout récent</option>
+        <option value="artist-asc">Artiste A → Z</option>
+        <option value="title-asc">Album A → Z</option>
+        <option value="year-desc">Année ↓</option>
+        <option value="year-asc">Année ↑</option>
+      </select>
+    </section>
+
+    <section id="emptyState" class="empty">
+      <div class="record-art" aria-hidden="true"><span></span></div>
+      <h3>Ta collection est vide</h3>
+      <p>Commence par une recherche Discogs : la pochette et les informations de l’édition seront récupérées automatiquement.</p>
+      <button class="btn primary" id="emptyDiscogsBtn">Rechercher un vinyle</button>
+    </section>
+
+    <section id="collection" class="grid" aria-live="polite"></section>
+  </main>
+
+  <footer>
+    <button id="exportJsonBtn">Sauvegarde JSON</button>
+    <button id="importJsonBtn">Restaurer JSON</button>
+    <button id="exportCsvBtn">Exporter CSV</button>
+    <input id="importFile" type="file" accept="application/json,.json" hidden>
+    <span>Les données de collection restent sur cet appareil.</span>
+  </footer>
+
+  <dialog id="recordDialog" class="modal">
+    <form id="recordForm" method="dialog">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">FICHE VINYLE</p>
+          <h2 id="recordDialogTitle">Ajouter un vinyle</h2>
+        </div>
+        <button type="button" class="icon-btn closeDialog" aria-label="Fermer">✕</button>
+      </div>
+
+      <input id="recordId" type="hidden">
+      <div class="form-grid">
+        <label>Artiste<input id="artist" required></label>
+        <label>Album / titre<input id="title" required></label>
+        <label>Année<input id="year" inputmode="numeric" placeholder="1977"></label>
+        <label>Format<input id="format" placeholder="LP, Album"></label>
+        <label>Genre / style<input id="genre" placeholder="Rock, Pop…"></label>
+        <label>Label<input id="label" placeholder="EMI"></label>
+        <label>Pays<input id="country" placeholder="France"></label>
+        <label>Référence / Cat. No.<input id="catno"></label>
+        <label>Code-barres<input id="barcode" inputmode="numeric"></label>
+        <label>Discogs ID<input id="discogsId" inputmode="numeric"></label>
+        <label class="wide">Pochette Discogs (URL)<input id="coverUrl" type="url"></label>
+        <label class="wide">Photo personnelle
+          <input id="personalPhoto" type="file" accept="image/*">
+          <small>Si tu ajoutes une photo, elle sera affichée à la place de la pochette Discogs.</small>
+        </label>
+        <label class="wide">Notes<textarea id="notes" rows="3" placeholder="État, provenance, prix, remarque…"></textarea></label>
+      </div>
+      <div id="photoPreviewWrap" class="photo-preview" hidden>
+        <img id="photoPreview" alt="Aperçu de la pochette">
+        <button type="button" id="removePhotoBtn" class="btn danger ghost">Retirer la photo personnelle</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary closeDialog">Annuler</button>
+        <button class="btn primary" value="default">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="discogsDialog" class="modal">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">DISCOGS</p>
+        <h2>Retrouver une édition</h2>
+      </div>
+      <button type="button" class="icon-btn closeDiscogs" aria-label="Fermer">✕</button>
+    </div>
+    <div class="discogs-search">
+      <input id="discogsQuery" placeholder="Ex. Queen A Night at the Opera ou 602547202779">
+      <button id="doDiscogsSearch" class="btn primary">Rechercher</button>
+    </div>
+    <p id="discogsHint" class="hint">Tu peux saisir un artiste + album, une référence ou un code-barres.</p>
+    <div id="discogsLoading" class="loading" hidden>Recherche Discogs…</div>
+    <div id="discogsResults" class="results"></div>
+  </dialog>
+
+  <dialog id="settingsDialog" class="modal small">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">RÉGLAGES</p>
+        <h2>Connexion Discogs</h2>
+      </div>
+      <button type="button" class="icon-btn closeSettings" aria-label="Fermer">✕</button>
+    </div>
+    <p>La recherche de la base Discogs utilise ton jeton personnel. Il est enregistré uniquement dans ce navigateur et n’est jamais ajouté aux sauvegardes.</p>
+    <label class="token-label">Jeton Discogs
+      <input id="discogsToken" type="password" autocomplete="off" placeholder="Colle ton token ici">
+    </label>
+    <div class="modal-actions">
+      <button id="clearTokenBtn" class="btn secondary" type="button">Effacer</button>
+      <button id="saveTokenBtn" class="btn primary" type="button">Enregistrer</button>
+    </div>
+    <p class="hint">Sur Discogs : Settings → Developers → Generate new token.</p>
+  </dialog>
+
+  <dialog id="scannerDialog" class="modal scanner">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">SCAN</p>
+        <h2>Code-barres du vinyle</h2>
+      </div>
+      <button type="button" id="closeScanner" class="icon-btn" aria-label="Fermer">✕</button>
+    </div>
+    <div class="video-wrap">
+      <video id="scannerVideo" autoplay playsinline muted></video>
+      <div class="scan-frame"></div>
+    </div>
+    <p id="scannerStatus" class="hint">Place le code-barres au centre de l’image.</p>
+    <div class="manual-barcode">
+      <input id="manualBarcode" inputmode="numeric" placeholder="Ou saisir le code-barres">
+      <button id="manualBarcodeBtn" class="btn secondary">Rechercher</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

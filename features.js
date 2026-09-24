@@ -1,177 +1,187 @@
 (() => {
   const splitTax = v => String(v || "").split(/[,;]+/).map(s => s.trim()).filter(Boolean);
   const norm = v => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  let lastDiscogsTaxonomy = null;
+  const uniq = arr => [...new Map(arr.map(v => [norm(v), v])).values()];
+  const knownGenres = new Set([
+    "blues","brass & military","children's","classical","electronic",
+    "folk, world, & country","funk / soul","hip hop","jazz","latin",
+    "non-music","pop","reggae","rock","stage & screen"
+  ]);
+  let activeStyle = "";
 
-  const originalFetch = window.fetch.bind(window);
-  window.fetch = async (...args) => {
-    const response = await originalFetch(...args);
-    const url = String(args[0] || "");
-    if (/api\.discogs\.com\/releases\/\d+/.test(url) && response.ok) {
-      response.clone().json().then(d => {
-        lastDiscogsTaxonomy = {
-          id: String(d.id || ""),
-          genres: d.genres || [],
-          styles: d.styles || [],
-          at: Date.now()
-        };
-      }).catch(() => {});
+  function migrateLegacyTaxonomy(){
+    let changed = false;
+    collection.forEach(r => {
+      if (r.style || !r.genre) return;
+      const parts = splitTax(r.genre);
+      if (parts.length < 2) return;
+      const genres = parts.filter(v => knownGenres.has(norm(v)));
+      const styles = parts.filter(v => !knownGenres.has(norm(v)));
+      if (genres.length && styles.length) {
+        r.genre = uniq(genres).join(", ");
+        r.style = uniq(styles).join(", ");
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(collection));
+    return changed;
+  }
+
+  function ensureBrowser(){
+    const toolbar = document.querySelector(".toolbar");
+    if (!toolbar) return null;
+    let section = document.querySelector("#styleBrowser");
+    if (!section) {
+      section = document.createElement("section");
+      section.id = "styleBrowser";
+      section.className = "style-browser";
+      section.innerHTML = `
+        <div class="style-browser-head">
+          <div>
+            <p class="eyebrow">EXPLORER</p>
+            <h3>Par style</h3>
+          </div>
+          <button type="button" id="clearStyleFilter" class="btn secondary">Tous les styles</button>
+        </div>
+        <div id="styleBrowserGrid" class="style-browser-grid"></div>`;
+      toolbar.insertAdjacentElement("afterend", section);
+      section.querySelector("#clearStyleFilter").addEventListener("click", () => {
+        activeStyle = "";
+        apply();
+      });
     }
-    return response;
-  };
-
-  const toolbar = document.querySelector('.toolbar');
-  const sortBy = document.querySelector('#sortBy');
-  if (toolbar && sortBy) {
-    const genre = document.createElement('select');
-    genre.id = 'filterGenre';
-    genre.setAttribute('aria-label', 'Filtrer par genre');
-    genre.innerHTML = '<option value="">Tous les genres</option>';
-
-    const style = document.createElement('select');
-    style.id = 'filterStyle';
-    style.setAttribute('aria-label', 'Filtrer par style');
-    style.innerHTML = '<option value="">Tous les styles</option>';
-
-    toolbar.insertBefore(genre, sortBy);
-    toolbar.insertBefore(style, sortBy);
-
-    const genreOption = document.createElement('option');
-    genreOption.value = 'genre-asc';
-    genreOption.textContent = 'Genre A → Z';
-    sortBy.insertBefore(genreOption, sortBy.querySelector('[value="year-desc"]'));
-
-    const styleOption = document.createElement('option');
-    styleOption.value = 'style-asc';
-    styleOption.textContent = 'Style A → Z';
-    sortBy.insertBefore(styleOption, sortBy.querySelector('[value="year-desc"]'));
+    return section;
   }
 
-  const formGrid = document.querySelector('#recordForm .form-grid');
-  const genreInput = document.querySelector('#genre');
-  if (formGrid && genreInput && !document.querySelector('#style')) {
-    const oldLabel = genreInput.closest('label');
-    oldLabel.childNodes[0].nodeValue = 'Genre';
-    genreInput.placeholder = 'Rock, Jazz, Reggae…';
-
-    const styleLabel = document.createElement('label');
-    styleLabel.innerHTML = 'Style<input id="style" placeholder="Hard Rock, New Wave, Synth-pop…">';
-    oldLabel.insertAdjacentElement('afterend', styleLabel);
+  function browserSource(){
+    const selectedGenre = document.querySelector("#filterGenre")?.value || "";
+    return collection.filter(r => !selectedGenre || splitTax(r.genre).some(g => norm(g) === norm(selectedGenre)));
   }
 
-  const styleEl = () => document.querySelector('#style');
-  const genreFilter = () => document.querySelector('#filterGenre');
-  const styleFilter = () => document.querySelector('#filterStyle');
-
-  function allValues(key) {
-    return [...new Set(collection.flatMap(r => splitTax(r[key])))].sort((a,b) => a.localeCompare(b, 'fr'));
+  function styleGroups(){
+    const map = new Map();
+    browserSource().forEach(record => {
+      splitTax(record.style).forEach(style => {
+        const key = norm(style);
+        if (!map.has(key)) map.set(key, {name:style, records:[]});
+        map.get(key).records.push(record);
+      });
+    });
+    return [...map.values()].sort((a,b) => a.name.localeCompare(b.name, "fr"));
   }
 
-  function refillFilters() {
-    const g = genreFilter(), s = styleFilter();
-    if (!g || !s) return;
-    const gv = g.value, sv = s.value;
-    g.innerHTML = '<option value="">Tous les genres</option>' + allValues('genre').map(v => '<option>'+esc(v)+'</option>').join('');
-    s.innerHTML = '<option value="">Tous les styles</option>' + allValues('style').map(v => '<option>'+esc(v)+'</option>').join('');
-    if ([...g.options].some(o => o.value === gv)) g.value = gv;
-    if ([...s.options].some(o => o.value === sv)) s.value = sv;
+  function renderBrowser(){
+    const section = ensureBrowser();
+    if (!section) return;
+    const grid = section.querySelector("#styleBrowserGrid");
+    const groups = styleGroups();
+
+    if (activeStyle && !groups.some(g => norm(g.name) === norm(activeStyle))) activeStyle = "";
+
+    if (!groups.length) {
+      grid.innerHTML = '<p class="hint">Les styles apparaîtront ici dès qu’ils seront renseignés sur tes vinyles.</p>';
+      return;
+    }
+
+    grid.innerHTML = groups.map(group => {
+      const covers = group.records.slice(0,4).map(r => {
+        const src = coverOf(r);
+        return src
+          ? `<img src="${esc(src)}" alt="${esc(r.title || group.name)}" loading="lazy">`
+          : '<div class="style-thumb placeholder-thumb"></div>';
+      }).join("");
+      return `
+        <button type="button" class="style-card ${norm(activeStyle)===norm(group.name)?"active":""}" data-style="${esc(group.name)}">
+          <div class="style-card-thumbs">${covers}</div>
+          <div class="style-card-meta">
+            <strong>${esc(group.name)}</strong>
+            <span>${group.records.length} vinyle${group.records.length>1?"s":""}</span>
+          </div>
+        </button>`;
+    }).join("");
+
+    grid.querySelectorAll("[data-style]").forEach(btn => btn.addEventListener("click", () => {
+      const value = btn.dataset.style || "";
+      activeStyle = norm(activeStyle) === norm(value) ? "" : value;
+      apply();
+      document.querySelector("#collection")?.scrollIntoView({behavior:"smooth",block:"start"});
+    }));
   }
 
-  function addTags(card, record) {
-    card.querySelector('.taxonomy-tags')?.remove();
-    const vals = [
-      ...splitTax(record.genre).map(v => [v, 'genre']),
-      ...splitTax(record.style).map(v => [v, 'style'])
+  function addTags(card, record){
+    card.querySelector(".taxonomy-tags")?.remove();
+    const items = [
+      ...splitTax(record.genre).map(v => [v,"genre"]),
+      ...splitTax(record.style).map(v => [v,"style"])
     ];
-    if (!vals.length) return;
-    const wrap = document.createElement('div');
-    wrap.className = 'taxonomy-tags';
-    wrap.innerHTML = vals.map(([v,k]) => '<span class="taxonomy-tag '+k+'">'+esc(v)+'</span>').join('');
-    card.querySelector('.card-actions')?.before(wrap);
+    if (!items.length) return;
+    const wrap = document.createElement("div");
+    wrap.className = "taxonomy-tags";
+    wrap.innerHTML = items.map(([v,k]) => `<span class="taxonomy-tag ${k}">${esc(v)}</span>`).join("");
+    card.querySelector(".card-actions")?.before(wrap);
   }
 
-  function applyTaxonomy() {
-    refillFilters();
-    const wantedGenre = genreFilter()?.value || '';
-    const wantedStyle = styleFilter()?.value || '';
-    const sort = document.querySelector('#sortBy')?.value || '';
-    const container = document.querySelector('#collection');
+  function filterCards(){
+    const container = document.querySelector("#collection");
     if (!container) return;
-
-    const cards = [...container.querySelectorAll('.record-card')];
-    const visible = [];
-    for (const card of cards) {
-      const id = card.querySelector('[data-edit]')?.dataset.edit;
-      const r = collection.find(x => x.id === id);
-      if (!r) continue;
-      addTags(card, r);
-      const genreOk = !wantedGenre || splitTax(r.genre).some(v => norm(v) === norm(wantedGenre));
-      const styleOk = !wantedStyle || splitTax(r.style).some(v => norm(v) === norm(wantedStyle));
-      card.hidden = !(genreOk && styleOk);
-      if (!card.hidden) visible.push(card);
-    }
-
-    if (sort === 'genre-asc' || sort === 'style-asc') {
-      const key = sort.startsWith('genre') ? 'genre' : 'style';
-      visible.sort((a,b) => {
-        const ra = collection.find(x => x.id === a.querySelector('[data-edit]')?.dataset.edit);
-        const rb = collection.find(x => x.id === b.querySelector('[data-edit]')?.dataset.edit);
-        return String(splitTax(ra?.[key])[0] || '').localeCompare(String(splitTax(rb?.[key])[0] || ''), 'fr');
-      }).forEach(card => container.appendChild(card));
-    }
-    container.hidden = visible.length === 0;
-  }
-
-  const dialog = document.querySelector('#recordDialog');
-  if (dialog) {
-    new MutationObserver(() => {
-      if (!dialog.open) return;
-      setTimeout(() => {
-        const id = document.querySelector('#recordId')?.value || '';
-        const discogsId = document.querySelector('#discogsId')?.value || '';
-        const style = styleEl();
-        if (!style) return;
-        if (lastDiscogsTaxonomy && discogsId === lastDiscogsTaxonomy.id && Date.now() - lastDiscogsTaxonomy.at < 10000) {
-          document.querySelector('#genre').value = lastDiscogsTaxonomy.genres.join(', ');
-          style.value = lastDiscogsTaxonomy.styles.join(', ');
-        } else if (id) {
-          style.value = collection.find(r => r.id === id)?.style || '';
-        } else {
-          style.value = '';
-        }
-      }, 0);
-    }).observe(dialog, {attributes:true, attributeFilter:['open']});
-  }
-
-  document.querySelector('#recordForm')?.addEventListener('submit', () => {
-    const style = styleEl()?.value.trim() || '';
-    setTimeout(() => {
-      const id = document.querySelector('#recordId')?.value || '';
-      let record = id ? collection.find(r => r.id === id) : collection.at(-1);
+    let visible = 0;
+    container.querySelectorAll(".record-card").forEach(card => {
+      const id = card.querySelector("[data-edit]")?.dataset.edit;
+      const record = collection.find(r => r.id === id);
       if (!record) return;
-      record.style = style;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(collection));
-      render();
-      applyTaxonomy();
-    }, 0);
-  });
+      addTags(card, record);
+      const ok = !activeStyle || splitTax(record.style).some(s => norm(s) === norm(activeStyle));
+      card.hidden = !ok;
+      if (ok) visible++;
+    });
+    container.hidden = visible === 0;
+  }
 
-  genreFilter()?.addEventListener('change', applyTaxonomy);
-  styleFilter()?.addEventListener('change', applyTaxonomy);
-  ['filterText','filterFormat','sortBy'].forEach(id => document.querySelector('#'+id)?.addEventListener('change', () => setTimeout(applyTaxonomy,0)));
-  document.querySelector('#filterText')?.addEventListener('input', () => setTimeout(applyTaxonomy,0));
-  document.querySelector('#collection')?.addEventListener('click', () => setTimeout(applyTaxonomy,0));
+  function apply(){
+    renderBrowser();
+    filterCards();
+  }
 
-  const style = document.createElement('style');
-  style.textContent = `
-    .toolbar{grid-template-columns:minmax(220px,1.5fr) repeat(4,minmax(145px,1fr))}
-    .taxonomy-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-    .taxonomy-tag{display:inline-flex;align-items:center;border-radius:999px;padding:5px 8px;font-size:.7rem;font-weight:800;background:var(--soft);color:var(--ink)}
+  const css = document.createElement("style");
+  css.textContent = `
+    .toolbar{grid-template-columns:minmax(240px,1.8fr) minmax(160px,1fr) minmax(160px,1fr)}
+    .style-browser{margin:6px 0 24px}
+    .style-browser-head{display:flex;justify-content:space-between;align-items:end;gap:14px;margin-bottom:12px}
+    .style-browser-head h3{margin:0;font-size:1.3rem;letter-spacing:-.03em}
+    .style-browser-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+    .style-card{border:1px solid var(--line);background:var(--card);border-radius:18px;padding:10px;text-align:left;cursor:pointer;transition:.15s}
+    .style-card:active{transform:scale(.985)}
+    .style-card.active{outline:2px solid #d5a526;box-shadow:0 0 0 4px rgba(213,165,38,.13)}
+    .style-card-thumbs{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px}
+    .style-card-thumbs img,.style-thumb{width:100%;aspect-ratio:1;object-fit:cover;border-radius:9px;background:#ded8cd}
+    .placeholder-thumb{background:linear-gradient(135deg,#ece7dd,#d8d0c2)}
+    .style-card-meta{display:flex;flex-direction:column;gap:2px}
+    .style-card-meta strong{font-size:.94rem;line-height:1.2}
+    .style-card-meta span{font-size:.75rem;color:var(--muted)}
+    .taxonomy-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
+    .taxonomy-tag{display:inline-flex;border-radius:999px;padding:4px 7px;font-size:.68rem;font-weight:800;background:var(--soft)}
     .taxonomy-tag.style{border:1px solid #d5a526;background:#fff7dc}
-    @media(max-width:760px){.toolbar{grid-template-columns:1fr}}
-  `;
-  document.head.appendChild(style);
+    @media(max-width:760px){
+      .toolbar{grid-template-columns:1fr}
+      .style-browser-head{align-items:flex-start}
+      .style-browser-grid{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(155px,68vw);grid-template-columns:none;overflow-x:auto;padding:2px 2px 10px;scroll-snap-type:x proximity}
+      .style-card{scroll-snap-align:start}
+    }`;
+  document.head.appendChild(css);
 
-  refillFilters();
-  applyTaxonomy();
+  const changed = migrateLegacyTaxonomy();
+  const collectionEl = document.querySelector("#collection");
+  if (collectionEl) {
+    let timer;
+    new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(apply, 0);
+    }).observe(collectionEl, {childList:true});
+  }
+
+  document.querySelector("#filterGenre")?.addEventListener("change", () => setTimeout(apply,0));
+  document.querySelector("#filterText")?.addEventListener("input", () => setTimeout(apply,0));
+
+  if (changed && typeof render === "function") render();
+  setTimeout(apply,0);
 })();

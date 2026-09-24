@@ -1,0 +1,19 @@
+{
+  "name": "Vinylothèque",
+  "short_name": "Vinylothèque",
+  "description": "Gestion locale de collection de vinyles avec recherche Discogs.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#111111",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

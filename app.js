@@ -26,7 +26,7 @@ function render(){
   $("#filterGenre").innerHTML = `<option value="">Tous les genres</option>` + genres.map(g=>`<option ${g===currentGenre?"selected":""}>${esc(g)}</option>`).join("");
 
   let rows = collection.filter(r=>{
-    const hay = normalize([r.artist,r.title,r.label,r.catno,r.barcode,r.country,r.genre,r.style,r.year,r.format].join(" "));
+    const hay = normalize([r.artist,r.title,r.label,r.catno,r.barcode,r.country,r.genre,r.style,r.year,r.format,r.location].join(" "));
     const genreOk = !currentGenre || splitTax(r.genre).some(g=>normalize(g)===normalize(currentGenre));
     return (!q || hay.includes(q)) && genreOk;
   });
@@ -81,7 +81,7 @@ function openRecord(record=null){
   $("#photoPreviewWrap").hidden = true;
   $("#recordDialogTitle").textContent = record ? "Modifier le vinyle" : "Ajouter un vinyle";
   const r = record || {};
-  for(const key of ["recordId","artist","title","year","format","genre","style","label","country","catno","barcode","discogsId","coverUrl","notes"]){
+  for(const key of ["recordId","artist","title","year","format","genre","style","label","country","location","catno","barcode","discogsId","coverUrl","notes"]){
     const el=$("#"+key);
     if(el) el.value = key==="recordId" ? (r.id||"") : (r[key]||"");
   }
@@ -127,6 +127,7 @@ $("#recordForm").addEventListener("submit", e=>{
     style:$("#style").value.trim(),
     label:$("#label").value.trim(),
     country:$("#country").value.trim(),
+    location:$("#location")?.value.trim() || "",
     catno:$("#catno").value.trim(),
     barcode:$("#barcode").value.trim(),
     discogsId:$("#discogsId").value.trim(),
@@ -214,6 +215,7 @@ $("#discogsResults").addEventListener("click",async e=>{
       style:styles,
       label:[...new Set(labels)].join(", "),
       country:d.country||"",
+      location:"",
       catno:[...new Set(catnos)].join(", "),
       barcode,
       discogsId:d.id||"",
@@ -279,7 +281,7 @@ function downloadBlob(blob,name){
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1200);
 }
 $("#exportJsonBtn").addEventListener("click",()=>{
-  const payload={app:"Vinylothèque",version:4,exportedAt:new Date().toISOString(),collection};
+  const payload={app:"Vinylothèque",version:5,exportedAt:new Date().toISOString(),collection};
   downloadBlob(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),`vinylotheque-sauvegarde-${new Date().toISOString().slice(0,10)}.json`);
 });
 $("#importJsonBtn").addEventListener("click",()=>$("#importFile").click());
@@ -293,8 +295,8 @@ $("#importFile").addEventListener("change",async e=>{
   e.target.value="";
 });
 $("#exportCsvBtn").addEventListener("click",()=>{
-  const cols=["Artiste","Album","Année","Format","Genre","Style","Label","Pays","Référence","Code-barres","Discogs ID","Notes"];
-  const keys=["artist","title","year","format","genre","style","label","country","catno","barcode","discogsId","notes"];
+  const cols=["Artiste","Album","Année","Format","Genre","Style","Label","Pays","Emplacement","Référence","Code-barres","Discogs ID","Notes"];
+  const keys=["artist","title","year","format","genre","style","label","country","location","catno","barcode","discogsId","notes"];
   const cell=v=>`"${String(v??"").replace(/"/g,'""')}"`;
   const csv="\ufeff"+[cols.map(cell).join(";"),...collection.map(r=>keys.map(k=>cell(r[k])).join(";"))].join("\r\n");
   downloadBlob(new Blob([csv],{type:"text/csv;charset=utf-8"}),`vinylotheque-${new Date().toISOString().slice(0,10)}.csv`);

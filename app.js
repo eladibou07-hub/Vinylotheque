@@ -7,6 +7,7 @@ let pendingPhoto = null;
 let deferredInstallPrompt = null;
 let scannerStream = null;
 let scannerLoop = null;
+let discogsSearchState = { query:"", isBarcode:false, page:1, pages:1, total:0, loading:false };
 
 function uid(){ return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
 function esc(v=""){ return String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c])); }
@@ -156,29 +157,47 @@ function needToken(){
 }
 function discogsHeaders(token){ return {Authorization:`Discogs token=${token}`,Accept:"application/vnd.discogs.v2.discogs+json"}; }
 
-async function searchDiscogs(query, isBarcode=false){
+async function searchDiscogs(query, isBarcode=false, page=1, append=false){
   const token=needToken(); if(!token) return;
   const q=String(query||"").trim(); if(!q) return;
+  if(discogsSearchState.loading) return;
+  discogsSearchState.loading=true;
+
   $("#discogsDialog").showModal();
   $("#discogsQuery").value=q;
-  $("#discogsResults").innerHTML="";
+  if(!append) $("#discogsResults").innerHTML="";
   $("#discogsLoading").hidden=false;
   $("#discogsHint").textContent=isBarcode?`Recherche du code-barres ${q}…`:"Recherche des éditions correspondantes…";
   try{
-    const params = new URLSearchParams({type:"release",per_page:"25"});
+    const params = new URLSearchParams({type:"release",per_page:"50",page:String(page)});
     if(isBarcode || /^\d{8,14}$/.test(q)) params.set("barcode",q); else params.set("q",q);
     const res=await fetch(`https://api.discogs.com/database/search?${params}`,{headers:discogsHeaders(token)});
     if(!res.ok) throw new Error(`Discogs HTTP ${res.status}`);
     const data=await res.json();
-    renderDiscogsResults(data.results||[]);
+    const pagination=data.pagination||{};
+    discogsSearchState={
+      query:q,
+      isBarcode,
+      page:Number(pagination.page||page),
+      pages:Number(pagination.pages||1),
+      total:Number(pagination.items||0),
+      loading:false
+    };
+    renderDiscogsResults(data.results||[], append);
   }catch(err){
+    discogsSearchState.loading=false;
     $("#discogsResults").innerHTML=`<p class="hint">Impossible de joindre Discogs. Vérifie le jeton et la connexion Internet.<br><small>${esc(err.message)}</small></p>`;
   }finally{ $("#discogsLoading").hidden=true; }
 }
+function renderDiscogsResults(results, append=false){
+  const state=discogsSearchState;
+  const shownBefore = append ? $("#discogsResults").querySelectorAll(".result").length : 0;
+  const shown = shownBefore + results.length;
+  $("#discogsHint").textContent = results.length || append
+    ? `${shown} résultat(s) affiché(s)${state.total ? ` sur ${state.total}` : ""}. Choisis la bonne édition.`
+    : "Aucune édition trouvée.";
 
-function renderDiscogsResults(results){
-  $("#discogsHint").textContent = results.length ? `${results.length} résultat(s) affiché(s). Choisis la bonne édition.` : "Aucune édition trouvée.";
-  $("#discogsResults").innerHTML=results.map(r=>`
+  const html=results.map(r=>`
     <article class="result">
       ${r.cover_image ? `<img src="${esc(r.cover_image)}" alt="">` : `<div class="result-cover"></div>`}
       <div>
@@ -188,8 +207,24 @@ function renderDiscogsResults(results){
       </div>
       <button class="btn secondary" data-discogs-id="${esc(r.id)}">Choisir</button>
     </article>`).join("");
-}
 
+  if(append) $("#discogsResults").insertAdjacentHTML("beforeend",html);
+  else $("#discogsResults").innerHTML=html;
+
+  $("#discogsResults").querySelector(".discogs-more")?.remove();
+  if(state.page < state.pages){
+    const more=document.createElement("button");
+    more.type="button";
+    more.className="btn secondary discogs-more";
+    more.textContent=`Afficher plus (${Math.min(50, Math.max(0,state.total-shown))} suivants)`;
+    more.addEventListener("click",()=>{
+      more.disabled=true;
+      more.textContent="Chargement…";
+      searchDiscogs(state.query,state.isBarcode,state.page+1,true);
+    });
+    $("#discogsResults").appendChild(more);
+  }
+}
 $("#discogsResults").addEventListener("click",async e=>{
   const b=e.target.closest("[data-discogs-id]"); if(!b) return;
   const token=needToken(); if(!token) return;

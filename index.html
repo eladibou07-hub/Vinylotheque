@@ -47,13 +47,15 @@
         <span>⌕</span>
         <input id="filterText" type="search" placeholder="Artiste, album, label, référence…">
       </label>
-      <select id="filterFormat" aria-label="Filtrer par format">
-        <option value="">Tous les formats</option>
+      <select id="filterGenre" aria-label="Filtrer par genre">
+        <option value="">Tous les genres</option>
       </select>
       <select id="sortBy" aria-label="Trier">
         <option value="added-desc">Ajout récent</option>
         <option value="artist-asc">Artiste A → Z</option>
         <option value="title-asc">Album A → Z</option>
+        <option value="genre-asc">Genre A → Z</option>
+        <option value="style-asc">Style A → Z</option>
         <option value="year-desc">Année ↓</option>
         <option value="year-asc">Année ↑</option>
       </select>
@@ -93,7 +95,8 @@
         <label>Album / titre<input id="title" required></label>
         <label>Année<input id="year" inputmode="numeric" placeholder="1977"></label>
         <label>Format<input id="format" placeholder="LP, Album"></label>
-        <label>Genre / style<input id="genre" placeholder="Rock, Pop…"></label>
+        <label>Genre<input id="genre" placeholder="Rock, Jazz, Reggae…"></label>
+        <label>Style<input id="style" placeholder="Hard Rock, New Wave, Synth-pop…"></label>
         <label>Label<input id="label" placeholder="EMI"></label>
         <label>Pays<input id="country" placeholder="France"></label>
         <label>Référence / Cat. No.<input id="catno"></label>

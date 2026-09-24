@@ -18,21 +18,24 @@ function coverOf(r){ return r.personalPhoto || r.coverUrl || ""; }
 
 function render(){
   const q = normalize($("#filterText").value);
-  const fmt = $("#filterFormat").value;
+  const currentGenre = $("#filterGenre").value;
   const sort = $("#sortBy").value;
 
-  const formats = [...new Set(collection.map(r=>r.format).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr"));
-  const currentFmt = fmt;
-  $("#filterFormat").innerHTML = `<option value="">Tous les formats</option>` + formats.map(f=>`<option ${f===currentFmt?"selected":""}>${esc(f)}</option>`).join("");
+  const splitTax = v => String(v||"").split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
+  const genres = [...new Map(collection.flatMap(r=>splitTax(r.genre)).map(v=>[normalize(v),v])).values()].sort((a,b)=>a.localeCompare(b,"fr"));
+  $("#filterGenre").innerHTML = `<option value="">Tous les genres</option>` + genres.map(g=>`<option ${g===currentGenre?"selected":""}>${esc(g)}</option>`).join("");
 
   let rows = collection.filter(r=>{
-    const hay = normalize([r.artist,r.title,r.label,r.catno,r.barcode,r.country,r.genre,r.year,r.format].join(" "));
-    return (!q || hay.includes(q)) && (!currentFmt || r.format===currentFmt);
+    const hay = normalize([r.artist,r.title,r.label,r.catno,r.barcode,r.country,r.genre,r.style,r.year,r.format].join(" "));
+    const genreOk = !currentGenre || splitTax(r.genre).some(g=>normalize(g)===normalize(currentGenre));
+    return (!q || hay.includes(q)) && genreOk;
   });
 
   rows.sort((a,b)=>{
     if(sort==="artist-asc") return String(a.artist||"").localeCompare(String(b.artist||""),"fr");
     if(sort==="title-asc") return String(a.title||"").localeCompare(String(b.title||""),"fr");
+    if(sort==="genre-asc") return String(a.genre||"").localeCompare(String(b.genre||""),"fr");
+    if(sort==="style-asc") return String(a.style||"").localeCompare(String(b.style||""),"fr");
     if(sort==="year-desc") return Number(b.year||0)-Number(a.year||0);
     if(sort==="year-asc") return Number(a.year||9999)-Number(b.year||9999);
     return Number(b.addedAt||0)-Number(a.addedAt||0);
@@ -59,7 +62,7 @@ function render(){
     </article>`;
   }).join("");
 
-  $("#emptyState").hidden = collection.length>0 || q || currentFmt;
+  $("#emptyState").hidden = collection.length>0 || q || currentGenre;
   $("#collection").hidden = rows.length===0;
   updateStats();
 }
@@ -78,7 +81,7 @@ function openRecord(record=null){
   $("#photoPreviewWrap").hidden = true;
   $("#recordDialogTitle").textContent = record ? "Modifier le vinyle" : "Ajouter un vinyle";
   const r = record || {};
-  for(const key of ["recordId","artist","title","year","format","genre","label","country","catno","barcode","discogsId","coverUrl","notes"]){
+  for(const key of ["recordId","artist","title","year","format","genre","style","label","country","catno","barcode","discogsId","coverUrl","notes"]){
     const el=$("#"+key);
     if(el) el.value = key==="recordId" ? (r.id||"") : (r[key]||"");
   }
@@ -121,6 +124,7 @@ $("#recordForm").addEventListener("submit", e=>{
     year:$("#year").value.trim(),
     format:$("#format").value.trim(),
     genre:$("#genre").value.trim(),
+    style:$("#style").value.trim(),
     label:$("#label").value.trim(),
     country:$("#country").value.trim(),
     catno:$("#catno").value.trim(),
@@ -194,7 +198,8 @@ $("#discogsResults").addEventListener("click",async e=>{
     if(!res.ok) throw new Error(`Discogs HTTP ${res.status}`);
     const d=await res.json();
     const fmt=(d.formats||[]).map(f=>[f.name,...(f.descriptions||[])].filter(Boolean).join(" ")).join(" / ");
-    const genres=[...(d.genres||[]),...(d.styles||[])].filter((v,i,a)=>a.indexOf(v)===i).join(", ");
+    const genres=[...(d.genres||[])].filter((v,i,a)=>a.indexOf(v)===i).join(", ");
+    const styles=[...(d.styles||[])].filter((v,i,a)=>a.indexOf(v)===i).join(", ");
     const labels=(d.labels||[]).map(x=>x.name).filter(Boolean);
     const catnos=(d.labels||[]).map(x=>x.catno).filter(Boolean);
     const barcode=(d.identifiers||[]).find(x=>normalize(x.type).includes("barcode"))?.value || "";
@@ -206,6 +211,7 @@ $("#discogsResults").addEventListener("click",async e=>{
       year:d.year||"",
       format:fmt,
       genre:genres,
+      style:styles,
       label:[...new Set(labels)].join(", "),
       country:d.country||"",
       catno:[...new Set(catnos)].join(", "),
@@ -287,8 +293,8 @@ $("#importFile").addEventListener("change",async e=>{
   e.target.value="";
 });
 $("#exportCsvBtn").addEventListener("click",()=>{
-  const cols=["Artiste","Album","Année","Format","Genre","Label","Pays","Référence","Code-barres","Discogs ID","Notes"];
-  const keys=["artist","title","year","format","genre","label","country","catno","barcode","discogsId","notes"];
+  const cols=["Artiste","Album","Année","Format","Genre","Style","Label","Pays","Référence","Code-barres","Discogs ID","Notes"];
+  const keys=["artist","title","year","format","genre","style","label","country","catno","barcode","discogsId","notes"];
   const cell=v=>`"${String(v??"").replace(/"/g,'""')}"`;
   const csv="\ufeff"+[cols.map(cell).join(";"),...collection.map(r=>keys.map(k=>cell(r[k])).join(";"))].join("\r\n");
   downloadBlob(new Blob([csv],{type:"text/csv;charset=utf-8"}),`vinylotheque-${new Date().toISOString().slice(0,10)}.csv`);
@@ -303,7 +309,7 @@ $("#discogsBtn").addEventListener("click",()=>{ if(needToken()) $("#discogsDialo
 $("#emptyDiscogsBtn").addEventListener("click",()=>{ if(needToken()) $("#discogsDialog").showModal(); });
 $("#scanBtn").addEventListener("click",startScanner);
 $("#filterText").addEventListener("input",render);
-$("#filterFormat").addEventListener("change",render);
+$("#filterGenre").addEventListener("change",render);
 $("#sortBy").addEventListener("change",render);
 $$(".closeDialog").forEach(b=>b.addEventListener("click",closeRecord));
 $$(".closeDiscogs").forEach(b=>b.addEventListener("click",()=>$("#discogsDialog").close()));

@@ -169,7 +169,7 @@ async function searchDiscogs(query, isBarcode=false, page=1, append=false){
   $("#discogsLoading").hidden=false;
   $("#discogsHint").textContent=isBarcode?`Recherche du code-barres ${q}…`:"Recherche des éditions correspondantes…";
   try{
-    const params = new URLSearchParams({type:"release",per_page:"50",page:String(page)});
+    const params = new URLSearchParams({type:"release",per_page:"100",page:String(page)});
     if(isBarcode || /^\d{8,14}$/.test(q)) params.set("barcode",q); else params.set("q",q);
     const res=await fetch(`https://api.discogs.com/database/search?${params}`,{headers:discogsHeaders(token)});
     if(!res.ok) throw new Error(`Discogs HTTP ${res.status}`);
@@ -216,7 +216,7 @@ function renderDiscogsResults(results, append=false){
     const more=document.createElement("button");
     more.type="button";
     more.className="btn secondary discogs-more";
-    more.textContent=`Afficher plus (${Math.min(50, Math.max(0,state.total-shown))} suivants)`;
+    more.textContent=`Afficher plus (${Math.min(100, Math.max(0,state.total-shown))} suivants)`;
     more.addEventListener("click",()=>{
       more.disabled=true;
       more.textContent="Chargement…";

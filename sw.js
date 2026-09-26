@@ -1,5 +1,5 @@
-const CACHE="vinylotheque-v6-3";
-const ASSETS=["./","./index.html","./styles.css?v=6.2","./app.js?v=6.2","./features.js?v=6.3","./dashboard.js?v=6.2","./manifest.webmanifest","./icons/icon-192.png","./icons/icon.svg"];
+const CACHE="vinylotheque-v7-0";
+const ASSETS=["./","./index.html","./styles.css?v=7.0","./app.js?v=7.0","./features.js?v=7.0","./dashboard.js?v=7.0","./v7.js?v=7.0","./manifest.webmanifest","./icons/icon-192.png","./icons/icon.svg"];
 
 self.addEventListener("install",e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));

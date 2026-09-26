@@ -8,7 +8,9 @@
   }
   function saveProfile(profile){
     localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+    localStorage.setItem("vinylotheque.sync.localChangedAt",new Date().toISOString());
     refreshProfileUI();
+    window.dispatchEvent(new CustomEvent("vinyl:profile-changed"));
   }
   function ensureProfile(){
     let p=readProfile();

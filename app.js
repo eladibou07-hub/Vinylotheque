@@ -15,7 +15,7 @@ function uid(){ return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-
 function esc(v=""){ return String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c])); }
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove("show"),2600); }
 function loadCollection(){ try { const v=JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]"); return Array.isArray(v)?v:[]; } catch { return []; } }
-function saveCollection(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(collection)); render(); }
+function saveCollection(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(collection)); localStorage.setItem("vinylotheque.sync.localChangedAt",new Date().toISOString()); render(); window.dispatchEvent(new CustomEvent("vinyl:collection-changed")); }
 function normalize(s){ return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
 function coverOf(r){ return r.personalPhoto || r.coverUrl || ""; }
 

@@ -9,6 +9,8 @@
   function getRecord(id){ return collection.find(r=>r.id===id); }
   function saveRich(){
     localStorage.setItem(storageKey,JSON.stringify(collection));
+    localStorage.setItem("vinylotheque.sync.localChangedAt",new Date().toISOString());
+    window.dispatchEvent(new CustomEvent("vinyl:collection-changed"));
   }
 
   function ensureAlbumView(){

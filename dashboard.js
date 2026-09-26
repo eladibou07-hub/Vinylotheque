@@ -3,6 +3,7 @@
   const split = v => String(v || "").split(/[,;]+/).map(s => s.trim()).filter(Boolean);
   const uniq = arr => [...new Map(arr.filter(Boolean).map(v => [norm(v), v])).values()];
   let currentView = "home";
+  let explorerType = "";
 
   const topValue = values => {
     const counts = new Map();
@@ -82,7 +83,7 @@
       if (!btn) return;
       const action = btn.dataset.nav;
       if (action === "home") setView("home");
-      if (action === "collection") setView("collection");
+      if (action === "collection") setView("collection", false);
       if (action === "add") {
         if (typeof openRecord === "function") openRecord();
       }
@@ -173,7 +174,7 @@
       if (action === "add" && typeof openRecord === "function") openRecord();
       if (action === "scan") document.querySelector("#scanBtn")?.click();
       if (action === "discogs") document.querySelector("#discogsBtn")?.click();
-      if (action === "collection") setView("collection");
+      if (action === "collection") setView("collection", false);
     }));
 
     dash.querySelectorAll("[data-explore]").forEach(btn => btn.addEventListener("click", () => explore(btn.dataset.explore)));
@@ -210,29 +211,102 @@
     document.querySelector("#advancedWrap")?.scrollIntoView({behavior:"smooth",block:"start"});
   }
 
+  function explorerConfig(type){
+    return {
+      artists:{title:"Artistes",singular:"artist",empty:"Aucun artiste renseigné"},
+      styles:{title:"Styles",singular:"style",empty:"Aucun style renseigné"},
+      decades:{title:"Décennies",singular:"decade",empty:"Aucune décennie disponible"},
+      locations:{title:"Emplacements",singular:"location",empty:"Aucun emplacement renseigné"}
+    }[type] || {title:"Explorer",singular:"",empty:"Aucun élément"};
+  }
+
+  function explorerGroups(type){
+    const map = new Map();
+    const add = value => {
+      if (!value) return;
+      const key = norm(value);
+      const old = map.get(key) || {name:value,count:0};
+      old.count++;
+      map.set(key,old);
+    };
+
+    collection.forEach(r => {
+      if (type === "artists") add(r.artist);
+      if (type === "styles") split(r.style).forEach(add);
+      if (type === "decades") add(decade(r.year));
+      if (type === "locations") add(r.location);
+    });
+
+    const rows=[...map.values()];
+    if(type === "decades") rows.sort((a,b)=>Number(b.name)-Number(a.name));
+    else rows.sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base"}));
+    return rows;
+  }
+
+  function ensureExplorerList(){
+    const shell=document.querySelector(".shell");
+    if(!shell) return null;
+    let section=document.querySelector("#explorerListView");
+    if(section) return section;
+    section=document.createElement("section");
+    section.id="explorerListView";
+    section.className="explorer-list-view dashboard-hidden";
+    shell.prepend(section);
+    return section;
+  }
+
+  function renderExplorerList(type){
+    const section=ensureExplorerList();
+    if(!section) return;
+    const config=explorerConfig(type);
+    const groups=explorerGroups(type);
+    section.innerHTML=
+      '<div class="explorer-list-head">' +
+        '<button type="button" class="btn secondary" id="explorerBack">← Accueil</button>' +
+        '<div><p class="eyebrow">EXPLORER</p><h2>' + esc(config.title) + '</h2>' +
+        '<p>' + groups.length + ' catégorie' + (groups.length>1?'s':'') + '</p></div>' +
+      '</div>' +
+      '<div class="explorer-simple-list">' +
+        (groups.length ? groups.map(g =>
+          '<button type="button" class="explorer-row" data-explorer-value="' + esc(g.name) + '">' +
+            '<strong>' + esc(g.name) + '</strong>' +
+            '<span>' + g.count + ' vinyle' + (g.count>1?'s':'') + ' <b>›</b></span>' +
+          '</button>'
+        ).join("") : '<p class="hint">' + esc(config.empty) + '</p>') +
+      '</div>';
+
+    section.querySelector("#explorerBack")?.addEventListener("click",()=>setView("home"));
+    section.querySelectorAll("[data-explorer-value]").forEach(btn=>btn.addEventListener("click",()=>{
+      const value=btn.dataset.explorerValue || "";
+      window.dispatchEvent(new CustomEvent("vinyl:explore-filter",{
+        detail:{type:config.singular,value}
+      }));
+      setView("collection",true);
+      const title=document.querySelector("#collectionHeader h2");
+      if(title) title.textContent=value;
+    }));
+  }
+
   function explore(type){
-    setView("collection");
-    setTimeout(() => {
-      if (type === "artists") {
-        const sort = document.querySelector("#sortBy");
-        if (sort) {
-          sort.value = "artist-asc";
-          sort.dispatchEvent(new Event("change",{bubbles:true}));
-        }
-        document.querySelector("#collection")?.scrollIntoView({behavior:"smooth",block:"start"});
-      }
-      if (type === "styles") {
-        document.querySelector("#styleBrowser")?.scrollIntoView({behavior:"smooth",block:"start"});
-      }
-      if (type === "decades") {
-        openAdvanced();
-        document.querySelector("#filterDecade")?.focus();
-      }
-      if (type === "locations") {
-        openAdvanced();
-        document.querySelector("#filterLocationAdv")?.focus();
-      }
-    },80);
+    explorerType=type;
+    currentView="explorer";
+    const dash=ensureDashboard();
+    const list=ensureExplorerList();
+    if(dash) dash.classList.add("dashboard-hidden");
+    setCollectionVisibility(false);
+    if(list) list.classList.remove("dashboard-hidden");
+    renderExplorerList(type);
+    document.body.dataset.appView="explorer";
+    document.querySelectorAll("#appBottomNav [data-nav]").forEach(btn=>{
+      btn.classList.toggle("active",btn.dataset.nav==="home");
+    });
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+
+  function clearExplorerFilter(){
+    window.dispatchEvent(new CustomEvent("vinyl:explore-filter",{detail:{}}));
+    const title=document.querySelector("#collectionHeader h2");
+    if(title) title.textContent="Mes vinyles";
   }
 
   function setCollectionVisibility(show){
@@ -248,11 +322,15 @@
     if (footer) footer.classList.toggle("dashboard-hidden", !show);
   }
 
-  function setView(view){
+  function setView(view,preserveExplorerFilter=false){
     currentView = view === "collection" ? "collection" : "home";
     const dash = ensureDashboard();
+    const explorer = ensureExplorerList();
     if (dash) dash.classList.toggle("dashboard-hidden", currentView !== "home");
+    if (explorer) explorer.classList.add("dashboard-hidden");
     setCollectionVisibility(currentView === "collection");
+
+    if (!preserveExplorerFilter) clearExplorerFilter();
 
     document.body.dataset.appView = currentView;
     document.querySelectorAll("#appBottomNav [data-nav]").forEach(btn => {
@@ -303,6 +381,17 @@
     .dash-all{justify-self:center;min-width:240px}
     .collection-header{display:flex;justify-content:space-between;align-items:end;gap:15px;margin-bottom:8px}
     .collection-header h2{font-size:clamp(2rem,6vw,3.6rem);letter-spacing:-.055em;margin:0}
+    .explorer-list-view{display:grid;gap:18px;max-width:800px;margin:0 auto}
+    .explorer-list-head{display:flex;gap:18px;align-items:flex-start}
+    .explorer-list-head h2{font-size:clamp(2rem,7vw,4rem);letter-spacing:-.055em;margin:0 0 4px}
+    .explorer-list-head p:last-child{margin:0;color:var(--muted);font-size:.85rem}
+    .explorer-simple-list{display:grid;background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden}
+    .explorer-row{border:0;border-bottom:1px solid var(--line);background:var(--card);padding:15px 17px;display:flex;align-items:center;justify-content:space-between;gap:15px;text-align:left;cursor:pointer;font:inherit;color:var(--ink)}
+    .explorer-row:last-child{border-bottom:0}
+    .explorer-row strong{font-size:.98rem}
+    .explorer-row span{white-space:nowrap;color:var(--muted);font-size:.78rem}
+    .explorer-row span b{font-size:1.25rem;color:#9a7a23;margin-left:5px}
+    .explorer-row:active{background:#fff7dc}
     .app-bottom-nav{position:fixed;left:50%;bottom:max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:80;width:min(520px,calc(100% - 22px));display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:7px;background:rgba(20,20,18,.94);backdrop-filter:blur(16px);border-radius:22px;box-shadow:0 16px 40px rgba(0,0,0,.24)}
     .app-bottom-nav button{border:0;background:transparent;color:#cfcac0;border-radius:16px;padding:7px 4px;display:grid;gap:2px;place-items:center;cursor:pointer;font:inherit}
     .app-bottom-nav button span{font-size:1.18rem}.app-bottom-nav button b{font-size:.67rem}

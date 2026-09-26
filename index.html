@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=10.0">
+  <link rel="stylesheet" href="styles.css?v=10.1">
 </head>
 <body>
   <header class="topbar">
@@ -147,19 +147,15 @@
     <div class="modal-head">
       <div>
         <p class="eyebrow">RÉGLAGES</p>
-        <h2>Connexion Discogs</h2>
+        <h2>Services</h2>
       </div>
       <button type="button" class="icon-btn closeSettings" aria-label="Fermer">✕</button>
     </div>
-    <p>La recherche de la base Discogs utilise ton jeton personnel. Il est enregistré uniquement dans ce navigateur et n’est jamais ajouté aux sauvegardes.</p>
-    <label class="token-label">Jeton Discogs
-      <input id="discogsToken" type="password" autocomplete="off" placeholder="Colle ton token ici">
-    </label>
-    <div class="modal-actions">
-      <button id="clearTokenBtn" class="btn secondary" type="button">Effacer</button>
-      <button id="saveTokenBtn" class="btn primary" type="button">Enregistrer</button>
+    <div class="profile-storage">
+      <strong>✓ Discogs intégré</strong>
+      <span>La recherche d’éditions, le scan de code-barres, les pochettes, tracklists et crédits passent par la passerelle sécurisée Vinylothèque.</span>
     </div>
-    <p class="hint">Sur Discogs : Settings → Developers → Generate new token.</p>
+    <p class="hint">Aucun compte Discogs ni jeton personnel n’est nécessaire pour utiliser ces fonctions.</p>
   </dialog>
 
   <dialog id="scannerDialog" class="modal scanner">
@@ -183,11 +179,11 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=10.0"></script>
-  <script src="features.js?v=10.0"></script>
-  <script src="dashboard.js?v=10.0"></script>
-  <script src="v7.js?v=10.0"></script>
-  <script src="v8.js?v=10.0"></script>
-  <script src="v10.js?v=10.0"></script>
+  <script src="app.js?v=10.1"></script>
+  <script src="features.js?v=10.1"></script>
+  <script src="dashboard.js?v=10.1"></script>
+  <script src="v7.js?v=10.1"></script>
+  <script src="v8.js?v=10.1"></script>
+  <script src="v10.js?v=10.1"></script>
 </body>
 </html>

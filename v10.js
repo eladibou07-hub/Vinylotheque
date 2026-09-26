@@ -61,10 +61,10 @@
       '<div class="welcome-mode"><strong>✓ Mode local</strong><span>Tes vinyles restent dans ce navigateur. Tu peux les sauvegarder et les restaurer avec un fichier JSON.</span></div>'+
       '<div class="welcome-mode disabled"><strong>☁ Synchronisation cloud</strong><span>Prévue pour une prochaine étape. Elle restera facultative.</span></div>'+
       '<div class="welcome-actions">'+
-        '<button type="button" class="btn secondary" id="welcomeLocal">Commencer sans Discogs</button>'+
-        '<button type="button" class="btn primary" id="welcomeDiscogs">Commencer + configurer Discogs</button>'+
+        '<button type="button" class="btn secondary" id="welcomeLocal">Commencer</button>'+
+        '<button type="button" class="btn primary" id="welcomeDiscogs">Commencer + ouvrir Discogs</button>'+
       '</div>'+
-      '<p class="hint">Le jeton Discogs, si tu en ajoutes un, reste lui aussi uniquement sur cet appareil et n’est jamais inclus dans les sauvegardes.</p>';
+      '<p class="hint">La recherche Discogs est intégrée à Vinylothèque : aucun compte Discogs ni jeton personnel n’est nécessaire pour rechercher et ajouter un disque.</p>';
     document.body.appendChild(d);
 
     const finish=withDiscogs=>{
@@ -76,8 +76,8 @@
       saveProfile(p);
       d.close();
       if(withDiscogs){
-        const settings=document.querySelector("#settingsDialog");
-        if(settings)settings.showModal();
+        const discogs=document.querySelector("#discogsDialog");
+        if(discogs)discogs.showModal();
       }else{
         toast("Bienvenue dans Vinylothèque");
       }
@@ -103,7 +103,7 @@
       '<div class="profile-action-grid">'+
         '<button type="button" class="btn primary" id="profileBackup">💾 Sauvegarder</button>'+
         '<button type="button" class="btn secondary" id="profileRestore">↥ Restaurer</button>'+
-        '<button type="button" class="btn secondary" id="profileDiscogs">Discogs</button>'+
+        '<button type="button" class="btn secondary" id="profileDiscogs">Recherche Discogs</button>'+
         '<button type="button" class="btn secondary" id="profileAbout">À propos</button>'+
       '</div>'+
       '<div class="modal-actions"><button type="button" class="btn primary" id="profileSave">Enregistrer le profil</button></div>';
@@ -119,7 +119,7 @@
     d.querySelector("#profileBackup").addEventListener("click",()=>document.querySelector("#exportJsonBtn")?.click());
     d.querySelector("#profileRestore").addEventListener("click",()=>document.querySelector("#importJsonBtn")?.click());
     d.querySelector("#profileDiscogs").addEventListener("click",()=>{
-      d.close();document.querySelector("#settingsBtn")?.click();
+      d.close();document.querySelector("#discogsDialog")?.showModal();
     });
     d.querySelector("#profileAbout").addEventListener("click",()=>{
       d.close();ensureAboutDialog().showModal();
@@ -149,7 +149,7 @@
       '<div class="about-sections">'+
         '<section><h3>🔒 Tes données</h3><p>La collection, le profil et les préférences sont enregistrés localement dans ce navigateur. Elles ne sont pas envoyées vers un compte Vinylothèque ou une base de données distante.</p></section>'+
         '<section><h3>💾 Sauvegarde</h3><p>Utilise régulièrement la sauvegarde JSON. Effacer les données du site ou réinitialiser le navigateur peut supprimer la collection locale.</p></section>'+
-        '<section><h3>🎵 Discogs</h3><p>La recherche d’éditions peut utiliser l’API Discogs. Ton jeton personnel reste dans ce navigateur et n’est pas inclus dans les sauvegardes.</p><p class="discogs-credit">Certaines données sont fournies par Discogs. Vinylothèque n’est ni affiliée, ni sponsorisée, ni approuvée par Discogs.</p></section>'+
+        '<section><h3>🎵 Discogs</h3><p>La recherche d’éditions utilise l’API Discogs via une passerelle sécurisée. Aucun compte Discogs ni jeton personnel n’est demandé aux utilisateurs.</p><p class="discogs-credit">Certaines données sont fournies par Discogs. Vinylothèque n’est ni affiliée, ni sponsorisée, ni approuvée par Discogs.</p></section>'+
         '<section><h3>☁ Synchronisation</h3><p>La structure du profil est prête pour une future synchronisation facultative entre plusieurs appareils. Cette fonction n’est pas encore activée.</p></section>'+
       '</div>'+
       '<p class="about-version">Version '+APP_VERSION+'</p>';

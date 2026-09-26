@@ -3,7 +3,7 @@
   const split = v => String(v || "").split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
   const coverOfRecord = r => (typeof coverOf === "function" ? coverOf(r) : (r.personalPhoto || r.coverUrl || ""));
   const storageKey = "vinylotheque.collection.v4";
-  const tokenKey = "vinylotheque.discogs.token";
+  const discogsProxyUrl = window.DISCOGS_PROXY_URL || "https://yjudyoihvmfvunvkmbtu.supabase.co/functions/v1/discogs-proxy";
   let currentAlbumId = "";
 
   function getRecord(id){ return collection.find(r=>r.id===id); }
@@ -148,15 +148,10 @@
 
   async function enrichFromDiscogs(record,manual=false){
     if(!record?.discogsId) return;
-    const token=localStorage.getItem(tokenKey)||"";
-    if(!token){
-      if(manual) toast("Ajoute ton jeton Discogs pour charger la tracklist");
-      return;
-    }
     renderAlbum(record,true);
     try{
-      const headers={Authorization:"Discogs token="+token,Accept:"application/vnd.discogs.v2.discogs+json"};
-      const res=await fetch("https://api.discogs.com/releases/"+encodeURIComponent(record.discogsId),{headers});
+      const params=new URLSearchParams({action:"release",id:String(record.discogsId)});
+      const res=await fetch(discogsProxyUrl+"?"+params.toString(),{headers:{Accept:"application/json"}});
       if(!res.ok) throw new Error("HTTP "+res.status);
       const d=await res.json();
       record.richData={

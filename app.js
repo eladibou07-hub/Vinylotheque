@@ -1,5 +1,7 @@
 const STORAGE_KEY = "vinylotheque.collection.v4";
-const TOKEN_KEY = "vinylotheque.discogs.token";
+const DISCOGS_PROXY_URL = "https://yjudyoihvmfvunvkmbtu.supabase.co/functions/v1/discogs-proxy";
+window.DISCOGS_PROXY_URL = DISCOGS_PROXY_URL;
+localStorage.removeItem("vinylotheque.discogs.token");
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 let collection = loadCollection();
@@ -155,15 +157,7 @@ $("#collection").addEventListener("click", e=>{
   if(del){ const r=collection.find(x=>x.id===del.dataset.delete); if(r && confirm(`Supprimer « ${r.artist} — ${r.title} » ?`)){ collection=collection.filter(x=>x.id!==r.id); saveCollection(); toast("Vinyle supprimé"); } }
 });
 
-function needToken(){
-  const token=localStorage.getItem(TOKEN_KEY)||"";
-  if(!token){ $("#discogsToken").value=""; $("#settingsDialog").showModal(); toast("Ajoute d’abord ton jeton Discogs"); return null; }
-  return token;
-}
-function discogsHeaders(token){ return {Authorization:`Discogs token=${token}`,Accept:"application/vnd.discogs.v2.discogs+json"}; }
-
 async function searchDiscogs(query, isBarcode=false, page=1, append=false){
-  const token=needToken(); if(!token) return;
   const q=String(query||"").trim(); if(!q) return;
   if(discogsSearchState.loading) return;
   discogsSearchState.loading=true;
@@ -174,9 +168,9 @@ async function searchDiscogs(query, isBarcode=false, page=1, append=false){
   $("#discogsLoading").hidden=false;
   $("#discogsHint").textContent=isBarcode?`Recherche du code-barres ${q}…`:"Recherche des éditions correspondantes…";
   try{
-    const params = new URLSearchParams({type:"release",per_page:"100",page:String(page)});
+    const params = new URLSearchParams({action:"search",page:String(page)});
     if(isBarcode || /^\d{8,14}$/.test(q)) params.set("barcode",q); else params.set("q",q);
-    const res=await fetch(`https://api.discogs.com/database/search?${params}`,{headers:discogsHeaders(token)});
+    const res=await fetch(`${DISCOGS_PROXY_URL}?${params}`,{headers:{Accept:"application/json"}});
     if(!res.ok) throw new Error(`Discogs HTTP ${res.status}`);
     const data=await res.json();
     const pagination=data.pagination||{};
@@ -191,7 +185,7 @@ async function searchDiscogs(query, isBarcode=false, page=1, append=false){
     renderDiscogsResults(data.results||[], append);
   }catch(err){
     discogsSearchState.loading=false;
-    $("#discogsResults").innerHTML=`<p class="hint">Impossible de joindre Discogs. Vérifie le jeton et la connexion Internet.<br><small>${esc(err.message)}</small></p>`;
+    $("#discogsResults").innerHTML=`<p class="hint">Impossible de joindre Discogs pour le moment. Vérifie la connexion Internet.<br><small>${esc(err.message)}</small></p>`;
   }finally{ $("#discogsLoading").hidden=true; }
 }
 function renderDiscogsResults(results, append=false){
@@ -232,10 +226,10 @@ function renderDiscogsResults(results, append=false){
 }
 $("#discogsResults").addEventListener("click",async e=>{
   const b=e.target.closest("[data-discogs-id]"); if(!b) return;
-  const token=needToken(); if(!token) return;
   b.disabled=true; b.textContent="Chargement…";
   try{
-    const res=await fetch(`https://api.discogs.com/releases/${b.dataset.discogsId}`,{headers:discogsHeaders(token)});
+    const params=new URLSearchParams({action:"release",id:b.dataset.discogsId});
+    const res=await fetch(`${DISCOGS_PROXY_URL}?${params}`,{headers:{Accept:"application/json"}});
     if(!res.ok) throw new Error(`Discogs HTTP ${res.status}`);
     const d=await res.json();
     const fmt=(d.formats||[]).map(f=>[f.name,...(f.descriptions||[])].filter(Boolean).join(" ")).join(" / ");
@@ -345,13 +339,11 @@ $("#exportCsvBtn").addEventListener("click",()=>{
   downloadBlob(new Blob([csv],{type:"text/csv;charset=utf-8"}),`vinylotheque-${new Date().toISOString().slice(0,10)}.csv`);
 });
 
-$("#settingsBtn").addEventListener("click",()=>{ $("#discogsToken").value=localStorage.getItem(TOKEN_KEY)||""; $("#settingsDialog").showModal(); });
-$("#saveTokenBtn").addEventListener("click",()=>{ const v=$("#discogsToken").value.trim(); if(v) localStorage.setItem(TOKEN_KEY,v); else localStorage.removeItem(TOKEN_KEY); $("#settingsDialog").close(); toast(v?"Jeton Discogs enregistré":"Jeton effacé"); });
-$("#clearTokenBtn").addEventListener("click",()=>{ localStorage.removeItem(TOKEN_KEY); $("#discogsToken").value=""; toast("Jeton effacé"); });
+$("#settingsBtn").addEventListener("click",()=>$("#settingsDialog").showModal());
 
 $("#addBtn").addEventListener("click",()=>openRecord());
-$("#discogsBtn").addEventListener("click",()=>{ if(needToken()) $("#discogsDialog").showModal(); });
-$("#emptyDiscogsBtn").addEventListener("click",()=>{ if(needToken()) $("#discogsDialog").showModal(); });
+$("#discogsBtn").addEventListener("click",()=>$("#discogsDialog").showModal());
+$("#emptyDiscogsBtn").addEventListener("click",()=>$("#discogsDialog").showModal());
 $("#scanBtn").addEventListener("click",startScanner);
 $("#filterText").addEventListener("input",render);
 $("#filterGenre").addEventListener("change",render);

@@ -226,8 +226,10 @@
     if (record.location) {
       const loc = document.createElement("div");
       loc.className = "location-line";
-      loc.textContent = "📍 " + record.location;
-      card.querySelector(".card-actions")?.before(loc);
+      loc.innerHTML = '<span class="location-icon">📍</span><span class="location-text">' + esc(record.location) + '</span>';
+      const tags = card.querySelector(".taxonomy-tags");
+      if (tags) tags.before(loc);
+      else card.querySelector(".card-actions")?.before(loc);
     }
 
     const artist = card.querySelector(".artist");
@@ -431,7 +433,8 @@
     .taxonomy-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
     .taxonomy-tag{display:inline-flex;border-radius:999px;padding:4px 7px;font-size:.68rem;font-weight:800;background:var(--soft)}
     .taxonomy-tag.style{border:1px solid #d5a526;background:#fff7dc}
-    .location-line{font-size:.76rem;color:var(--muted);margin-top:9px}
+    .location-line{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:800;color:#6b5718;margin-top:10px;padding:7px 9px;background:#fff7dc;border:1px solid #ead27d;border-radius:10px}
+    .location-icon{flex:0 0 auto}.location-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .artist-link{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
     .artist-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
     .artist-stats strong,.artist-stats span{display:block}

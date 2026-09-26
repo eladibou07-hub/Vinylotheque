@@ -175,10 +175,11 @@
     }
     const p=readProfile();
     const date=fmtDate(localStorage.getItem(LAST_BACKUP_KEY));
-    card.innerHTML=
+    const markup=
       '<div><p class="eyebrow">MON ESPACE</p><h3>'+(p?.displayName?esc(p.displayName)+" · ":"")+
       esc(p?.collectionName||"Ma collection")+'</h3><p>Dernière sauvegarde : <strong>'+esc(date)+'</strong></p></div>'+
       '<div class="v10-backup-actions"><button type="button" class="btn secondary" data-v10-profile>Profil</button><button type="button" class="btn primary" data-v10-backup>💾 Sauvegarder</button></div>';
+    if(card.innerHTML!==markup) card.innerHTML=markup;
   }
 
   function refreshProfileUI(){
@@ -214,6 +215,8 @@
     @media(max-width:600px){.welcome-grid{grid-template-columns:1fr}.welcome-actions{display:grid}.v10-backup-card{align-items:flex-start;flex-direction:column}.v10-backup-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.profile-action-grid{grid-template-columns:1fr}.header-actions{gap:4px}}
   `;
   document.head.appendChild(css);
+
+  window.addEventListener("vinyl:profile-restored",()=>{refreshProfileUI();toast("Profil local restauré");});
 
   ensureHeaderButtons();
   ensureProfileDialog();

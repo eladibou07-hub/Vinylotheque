@@ -267,7 +267,6 @@ $("#doDiscogsSearch").addEventListener("click",()=>searchDiscogs($("#discogsQuer
 $("#discogsQuery").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); searchDiscogs(e.target.value); } });
 
 async function startScanner(){
-  const token=needToken(); if(!token) return;
   $("#scannerDialog").showModal();
   $("#scannerStatus").textContent="Activation de la caméra…";
   if(!("BarcodeDetector" in window)){

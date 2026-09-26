@@ -110,7 +110,7 @@
     const genre = document.querySelector("#filterGenre")?.value || "";
     const hay = norm([
       r.artist,r.title,r.label,r.catno,r.barcode,r.country,r.genre,r.style,
-      r.year,r.format,r.location,r.notes
+      r.year,r.format,r.location,r.personalStatus,r.contextNote,r.notes
     ].join(" "));
     const genreOk = !genre || splitTax(r.genre).some(v => norm(v) === norm(genre));
     return (!q || hay.includes(q)) && genreOk;

@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=7.0">
+  <link rel="stylesheet" href="styles.css?v=8.0">
 </head>
 <body>
   <header class="topbar">
@@ -56,6 +56,7 @@
         <option value="title-asc">Album A → Z</option>
         <option value="genre-asc">Genre A → Z</option>
         <option value="style-asc">Style A → Z</option>
+        <option value="rating-desc">Note personnelle ↓</option>
         <option value="year-desc">Année ↓</option>
         <option value="year-asc">Année ↑</option>
       </select>
@@ -101,6 +102,8 @@
         <label>Label<input id="label" placeholder="EMI"></label>
         <label>Pays<input id="country" placeholder="France"></label>
         <label>Emplacement physique<input id="location" placeholder="Meuble salon - Bac 2"></label>
+        <label>Note personnelle<select id="personalRating"><option value="">Non noté</option><option value="5">★★★★★ — 5/5</option><option value="4">★★★★☆ — 4/5</option><option value="3">★★★☆☆ — 3/5</option><option value="2">★★☆☆☆ — 2/5</option><option value="1">★☆☆☆☆ — 1/5</option></select></label>
+        <label>Classement personnel<select id="personalStatus"><option value="">Aucun</option><option>Indispensable</option><option>Très bon</option><option>À réécouter</option><option>Décevant</option></select></label>
         <label>Référence / Cat. No.<input id="catno"></label>
         <label>Code-barres<input id="barcode" inputmode="numeric"></label>
         <label>Discogs ID<input id="discogsId" inputmode="numeric"></label>
@@ -109,7 +112,8 @@
           <input id="personalPhoto" type="file" accept="image/*">
           <small>Si tu ajoutes une photo, elle sera affichée à la place de la pochette Discogs.</small>
         </label>
-        <label class="wide">Notes<textarea id="notes" rows="3" placeholder="État, provenance, prix, remarque…"></textarea></label>
+        <label class="wide">Note de contexte<textarea id="contextNote" rows="3" placeholder="Souvenir, achat, concert, cadeau, histoire liée à ce disque…"></textarea></label>
+        <label class="wide">Notes techniques<textarea id="notes" rows="3" placeholder="État, provenance, prix, remarque…"></textarea></label>
       </div>
       <div id="photoPreviewWrap" class="photo-preview" hidden>
         <img id="photoPreview" alt="Aperçu de la pochette">
@@ -179,9 +183,10 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=7.0"></script>
-  <script src="features.js?v=7.0"></script>
-  <script src="dashboard.js?v=7.0"></script>
-  <script src="v7.js?v=7.0"></script>
+  <script src="app.js?v=8.0"></script>
+  <script src="features.js?v=8.0"></script>
+  <script src="dashboard.js?v=8.0"></script>
+  <script src="v7.js?v=8.0"></script>
+  <script src="v8.js?v=8.0"></script>
 </body>
 </html>

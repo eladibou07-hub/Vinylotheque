@@ -90,6 +90,7 @@
           '<p class="album-edition">'+esc([record.year,record.format,record.country].filter(Boolean).join(" · "))+'</p>' +
           (chips.length ? '<div class="album-chips">'+chips.map(v=>'<span>'+esc(v)+'</span>').join("")+'</div>' : '') +
           (record.location ? '<div class="album-location-big">📍 <strong>'+esc(record.location)+'</strong></div>' : '') +
+          (record.personalRating ? '<div class="album-personal-rating">' + "★".repeat(Number(record.personalRating)) + "☆".repeat(5-Number(record.personalRating)) + (record.personalStatus ? '<span>'+esc(record.personalStatus)+'</span>' : '') + '</div>' : (record.personalStatus ? '<div class="album-personal-rating"><span>'+esc(record.personalStatus)+'</span></div>' : '')) +
         '</div>' +
       '</section>' +
       '<section class="album-detail-grid">' +
@@ -100,6 +101,7 @@
         metaItem("Discogs ID",record.discogsId) +
         metaItem("Emplacement",record.location) +
       '</section>' +
+      (record.contextNote ? '<section class="album-section album-context"><p class="eyebrow">MON HISTOIRE AVEC CE DISQUE</p><p class="album-notes">'+esc(record.contextNote)+'</p></section>' : '') +
       (record.notes ? '<section class="album-section"><p class="eyebrow">MES NOTES</p><p class="album-notes">'+esc(record.notes)+'</p></section>' : '') +
       '<section class="album-section">' +
         '<div class="album-section-title"><div><p class="eyebrow">CONTENU</p><h2>Tracklist</h2></div>' +
@@ -348,7 +350,7 @@
     .album-main-info h1{font-size:clamp(2.2rem,6vw,4.8rem);line-height:.95;letter-spacing:-.06em;margin:0 0 10px}
     .album-artist-button{border:0;background:transparent;padding:0;font:inherit;font-size:1.25rem;font-weight:800;color:var(--muted);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:4px}
     .album-edition{margin:12px 0;color:var(--muted)}.album-chips{display:flex;gap:6px;flex-wrap:wrap}.album-chips span{background:#fff;border:1px solid var(--line);padding:6px 9px;border-radius:999px;font-size:.75rem;font-weight:800}
-    .album-location-big{display:inline-flex;margin-top:16px;padding:10px 13px;background:#fff7dc;border:1px solid #ead27d;border-radius:13px;color:#6b5718}
+    .album-location-big{display:inline-flex;margin-top:16px;padding:10px 13px;background:#fff7dc;border:1px solid #ead27d;border-radius:13px;color:#6b5718}.album-personal-rating{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:1.2rem;color:#9a7a23;font-weight:900}.album-personal-rating span{font-size:.8rem;color:var(--ink);background:#fff;border:1px solid var(--line);padding:5px 8px;border-radius:999px}.album-context{background:#fffaf0;border-color:#e7cc74}
     .album-detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:30px 0}
     .album-meta-item{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px}.album-meta-item span,.album-meta-item strong{display:block}.album-meta-item span{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.album-meta-item strong{margin-top:4px;font-size:.9rem}
     .album-section{background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px;margin-top:14px}.album-section h2{margin:0 0 12px;font-size:1.25rem}.album-notes{white-space:pre-wrap;line-height:1.5}.album-muted,.album-loading{color:var(--muted);font-size:.85rem}
@@ -364,6 +366,8 @@
     @media(max-width:430px){.album-detail-grid{grid-template-columns:1fr}.album-full-content{padding-top:16px}.track-row{grid-template-columns:40px 1fr auto;font-size:.8rem}}
   `;
   document.head.appendChild(css);
+
+  window.addEventListener("vinyl:open-album",e=>{const r=getRecord(e.detail?.id);if(r)openAlbum(r);});
 
   ensureAlbumView();
   ensurePdfDialog();

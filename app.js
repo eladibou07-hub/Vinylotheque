@@ -27,7 +27,7 @@ function render(){
   $("#filterGenre").innerHTML = `<option value="">Tous les genres</option>` + genres.map(g=>`<option ${g===currentGenre?"selected":""}>${esc(g)}</option>`).join("");
 
   let rows = collection.filter(r=>{
-    const hay = normalize([r.artist,r.title,r.label,r.catno,r.barcode,r.country,r.genre,r.style,r.year,r.format,r.location].join(" "));
+    const hay = normalize([r.artist,r.title,r.label,r.catno,r.barcode,r.country,r.genre,r.style,r.year,r.format,r.location,r.personalStatus,r.contextNote].join(" "));
     const genreOk = !currentGenre || splitTax(r.genre).some(g=>normalize(g)===normalize(currentGenre));
     return (!q || hay.includes(q)) && genreOk;
   });
@@ -37,6 +37,7 @@ function render(){
     if(sort==="title-asc") return String(a.title||"").localeCompare(String(b.title||""),"fr");
     if(sort==="genre-asc") return String(a.genre||"").localeCompare(String(b.genre||""),"fr");
     if(sort==="style-asc") return String(a.style||"").localeCompare(String(b.style||""),"fr");
+    if(sort==="rating-desc") return Number(b.personalRating||0)-Number(a.personalRating||0) || String(a.artist||"").localeCompare(String(b.artist||""),"fr");
     if(sort==="year-desc") return Number(b.year||0)-Number(a.year||0);
     if(sort==="year-asc") return Number(a.year||9999)-Number(b.year||9999);
     return Number(b.addedAt||0)-Number(a.addedAt||0);
@@ -82,7 +83,7 @@ function openRecord(record=null){
   $("#photoPreviewWrap").hidden = true;
   $("#recordDialogTitle").textContent = record ? "Modifier le vinyle" : "Ajouter un vinyle";
   const r = record || {};
-  for(const key of ["recordId","artist","title","year","format","genre","style","label","country","location","catno","barcode","discogsId","coverUrl","notes"]){
+  for(const key of ["recordId","artist","title","year","format","genre","style","label","country","location","personalRating","personalStatus","catno","barcode","discogsId","coverUrl","contextNote","notes"]){
     const el=$("#"+key);
     if(el) el.value = key==="recordId" ? (r.id||"") : (r[key]||"");
   }
@@ -129,12 +130,16 @@ $("#recordForm").addEventListener("submit", e=>{
     label:$("#label").value.trim(),
     country:$("#country").value.trim(),
     location:$("#location")?.value.trim() || "",
+    personalRating:$("#personalRating")?.value || "",
+    personalStatus:$("#personalStatus")?.value || "",
     catno:$("#catno").value.trim(),
     barcode:$("#barcode").value.trim(),
     discogsId:$("#discogsId").value.trim(),
     coverUrl:$("#coverUrl").value.trim(),
     personalPhoto:pendingPhoto,
+    contextNote:$("#contextNote")?.value.trim() || "",
     notes:$("#notes").value.trim(),
+    richData:old?.richData || null,
     addedAt: old?.addedAt || Date.now(),
     updatedAt: Date.now()
   };
@@ -251,10 +256,13 @@ $("#discogsResults").addEventListener("click",async e=>{
       label:[...new Set(labels)].join(", "),
       country:d.country||"",
       location:"",
+      personalRating:"",
+      personalStatus:"",
       catno:[...new Set(catnos)].join(", "),
       barcode,
       discogsId:d.id||"",
       coverUrl:primary?.uri || d.thumb || "",
+      contextNote:"",
       notes:""
     };
     $("#discogsDialog").close(); openRecord(draft);
@@ -330,8 +338,8 @@ $("#importFile").addEventListener("change",async e=>{
   e.target.value="";
 });
 $("#exportCsvBtn").addEventListener("click",()=>{
-  const cols=["Artiste","Album","Année","Format","Genre","Style","Label","Pays","Emplacement","Référence","Code-barres","Discogs ID","Notes"];
-  const keys=["artist","title","year","format","genre","style","label","country","location","catno","barcode","discogsId","notes"];
+  const cols=["Artiste","Album","Année","Format","Genre","Style","Label","Pays","Emplacement","Note personnelle","Classement personnel","Référence","Code-barres","Discogs ID","Contexte","Notes"];
+  const keys=["artist","title","year","format","genre","style","label","country","location","personalRating","personalStatus","catno","barcode","discogsId","contextNote","notes"];
   const cell=v=>`"${String(v??"").replace(/"/g,'""')}"`;
   const csv="\ufeff"+[cols.map(cell).join(";"),...collection.map(r=>keys.map(k=>cell(r[k])).join(";"))].join("\r\n");
   downloadBlob(new Blob([csv],{type:"text/csv;charset=utf-8"}),`vinylotheque-${new Date().toISOString().slice(0,10)}.csv`);

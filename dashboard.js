@@ -120,7 +120,7 @@
 
     dash.innerHTML =
       '<section class="dash-hero">' +
-        '<img class="dash-logo" src="icons/icon-192.png" alt="">' +
+        '<img class="dash-logo" src="icons/icon.svg?v=6.1" alt="">' +
         '<div class="dash-hero-copy">' +
           '<p class="eyebrow">VINYLOTHÈQUE</p>' +
           '<h2>Ma collection</h2>' +

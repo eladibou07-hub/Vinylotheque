@@ -132,7 +132,7 @@
   }
 
   function baseRecords(){
-    return collection.filter(r => mainFiltersMatch(r) && advancedMatch(r));
+    return collection.filter(r => mainFiltersMatch(r) && advancedMatch(r) && explorerMatch(r));
   }
 
   function ensureBrowser(){

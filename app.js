@@ -324,7 +324,7 @@ function downloadBlob(blob,name){
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1200);
 }
 $("#exportJsonBtn").addEventListener("click",()=>{
-  const payload={app:"Vinylothèque",version:5,exportedAt:new Date().toISOString(),collection};
+  let profile=null; try{ profile=JSON.parse(localStorage.getItem("vinylotheque.profile.v1")||"null"); }catch{} const payload={app:"Vinylothèque",version:10,exportedAt:new Date().toISOString(),profile,collection};
   downloadBlob(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),`vinylotheque-sauvegarde-${new Date().toISOString().slice(0,10)}.json`);
 });
 $("#importJsonBtn").addEventListener("click",()=>$("#importFile").click());
@@ -333,7 +333,7 @@ $("#importFile").addEventListener("change",async e=>{
   try{
     const data=JSON.parse(await f.text()); const rows=Array.isArray(data)?data:data.collection;
     if(!Array.isArray(rows)) throw new Error("Format invalide");
-    if(confirm(`Restaurer ${rows.length} vinyle(s) et remplacer la collection actuelle ?`)){ collection=rows; saveCollection(); toast("Sauvegarde restaurée"); }
+    if(confirm(`Restaurer ${rows.length} vinyle(s) et remplacer la collection actuelle ?`)){ collection=rows; if(data && !Array.isArray(data) && data.profile){ localStorage.setItem("vinylotheque.profile.v1",JSON.stringify(data.profile)); } saveCollection(); window.dispatchEvent(new CustomEvent("vinyl:profile-restored")); toast("Sauvegarde restaurée"); }
   }catch{ alert("Ce fichier n’est pas une sauvegarde Vinylothèque valide."); }
   e.target.value="";
 });

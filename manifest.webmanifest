@@ -1,7 +1,7 @@
 {
   "name": "Vinylothèque",
   "short_name": "Vinylothèque",
-  "description": "Gestion locale de collection de vinyles avec recherche Discogs.",
+  "description": "Collection de vinyles personnelle, installable et locale, avec recherche Discogs, fiches enrichies, mur de pochettes et sauvegarde.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",

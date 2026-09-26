@@ -72,6 +72,24 @@
     ).join("") + '</div>';
   }
 
+  function listenMarkup(record){
+    const query=encodeURIComponent([record.artist,record.title].filter(Boolean).join(" "));
+    if(!query) return "";
+    const services=[
+      ["Spotify","https://open.spotify.com/search/"+query],
+      ["Deezer","https://www.deezer.com/search/"+query],
+      ["YouTube Music","https://music.youtube.com/search?q="+query],
+      ["Qobuz","https://www.qobuz.com/fr-fr/search?q="+query]
+    ];
+    return '<section class="album-section album-listen">' +
+      '<p class="eyebrow">ÉCOUTER</p><h2>Retrouver cet album en ligne</h2>' +
+      '<div class="listen-links">' +
+      services.map(([name,url]) =>
+        '<a class="listen-link" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer"><strong>'+esc(name)+'</strong><span>Ouvrir ↗</span></a>'
+      ).join("") +
+      '</div></section>';
+  }
+
   function renderAlbum(record,loadingRich=false){
     const view=ensureAlbumView();
     const content=view.querySelector("#albumFullContent");
@@ -93,6 +111,7 @@
           (record.personalRating ? '<div class="album-personal-rating">' + "★".repeat(Number(record.personalRating)) + "☆".repeat(5-Number(record.personalRating)) + (record.personalStatus ? '<span>'+esc(record.personalStatus)+'</span>' : '') + '</div>' : (record.personalStatus ? '<div class="album-personal-rating"><span>'+esc(record.personalStatus)+'</span></div>' : '')) +
         '</div>' +
       '</section>' +
+      listenMarkup(record) +
       '<section class="album-detail-grid">' +
         metaItem("Label",record.label) +
         metaItem("Référence",record.catno) +
@@ -354,16 +373,17 @@
     .album-detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:30px 0}
     .album-meta-item{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px}.album-meta-item span,.album-meta-item strong{display:block}.album-meta-item span{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.album-meta-item strong{margin-top:4px;font-size:.9rem}
     .album-section{background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px;margin-top:14px}.album-section h2{margin:0 0 12px;font-size:1.25rem}.album-notes{white-space:pre-wrap;line-height:1.5}.album-muted,.album-loading{color:var(--muted);font-size:.85rem}
-    .album-section-title{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+    .album-section-title{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.album-listen{background:linear-gradient(135deg,#fff,#fff8df)}.listen-links{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.listen-link{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 13px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);text-decoration:none}.listen-link strong{font-size:.9rem}.listen-link span{font-size:.72rem;color:var(--muted);white-space:nowrap}.listen-link:active{transform:scale(.985)}
     .track-list,.credit-list{display:grid}.track-row,.credit-row{display:grid;grid-template-columns:55px 1fr auto;gap:9px;padding:9px 0;border-bottom:1px solid #eee;font-size:.88rem}.track-row:last-child,.credit-row:last-child{border-bottom:0}.track-pos,.track-duration,.credit-row span{color:var(--muted)}.track-heading{font-weight:900;padding:13px 0 6px}
     .credit-row{grid-template-columns:1fr auto}.album-enrich{margin-top:14px}
     .dash-actions{grid-template-columns:repeat(4,1fr)!important}
     .record-card{cursor:pointer}
     .pdf-mode-list{display:grid;gap:9px}.pdf-mode-list button{border:1px solid var(--line);background:#fff;border-radius:15px;padding:14px;text-align:left;cursor:pointer}.pdf-mode-list strong,.pdf-mode-list span{display:block}.pdf-mode-list span{font-size:.78rem;color:var(--muted);margin-top:3px}
     @media(max-width:760px){
+      .listen-links{grid-template-columns:1fr 1fr}
       .album-hero-full{grid-template-columns:1fr;gap:20px}.album-cover-large{width:min(100%,480px);margin:auto}.album-detail-grid{grid-template-columns:1fr 1fr}.dash-actions{grid-template-columns:1fr!important}.album-view-actions .btn.secondary{display:none}
     }
-    @media(max-width:430px){.album-detail-grid{grid-template-columns:1fr}.album-full-content{padding-top:16px}.track-row{grid-template-columns:40px 1fr auto;font-size:.8rem}}
+    @media(max-width:430px){.listen-links{grid-template-columns:1fr}.album-detail-grid{grid-template-columns:1fr}.album-full-content{padding-top:16px}.track-row{grid-template-columns:40px 1fr auto;font-size:.8rem}}
   `;
   document.head.appendChild(css);
 

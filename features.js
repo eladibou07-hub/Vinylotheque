@@ -8,6 +8,7 @@
     "non-music","pop","reggae","rock","stage & screen"
   ]);
   let activeStyle = "";
+  let explorerFilter = null;
 
   function migrateLegacyTaxonomy(){
     let changed = false;
@@ -239,6 +240,16 @@
     }
   }
 
+  function explorerMatch(record){
+    if (!explorerFilter) return true;
+    const value = explorerFilter.value || "";
+    if (explorerFilter.type === "artist") return norm(record.artist) === norm(value);
+    if (explorerFilter.type === "style") return splitTax(record.style).some(v => norm(v) === norm(value));
+    if (explorerFilter.type === "decade") return decadeOf(record.year) + "s" === value;
+    if (explorerFilter.type === "location") return norm(record.location) === norm(value);
+    return true;
+  }
+
   function filterCards(){
     const container = document.querySelector("#collection");
     if (!container) return;
@@ -249,7 +260,7 @@
       if (!record) return;
       addTags(card, record);
       const styleOk = !activeStyle || splitTax(record.style).some(s => norm(s) === norm(activeStyle));
-      const ok = mainFiltersMatch(record) && advancedMatch(record) && styleOk;
+      const ok = mainFiltersMatch(record) && advancedMatch(record) && styleOk && explorerMatch(record);
       card.hidden = !ok;
       if (ok) visible++;
     });
@@ -472,6 +483,18 @@
   document.querySelector("#filterText")?.addEventListener("input", () => setTimeout(apply,0));
   document.querySelector("#sortBy")?.addEventListener("change", () => setTimeout(apply,0));
   document.querySelector("#exportPdfBtn")?.addEventListener("click", exportPdfCatalogue);
+
+  window.addEventListener("vinyl:explore-filter", e => {
+    const detail = e.detail || {};
+    explorerFilter = detail.type && detail.value ? {type:detail.type,value:detail.value} : null;
+    activeStyle = "";
+    ["filterText","filterGenre","filterDecade","filterCountryAdv","filterLabelAdv","filterFormatAdv","filterLocationAdv"].forEach(id => {
+      const el = document.querySelector("#" + id);
+      if (el) el.value = "";
+    });
+    if (typeof render === "function") render();
+    setTimeout(apply,0);
+  });
 
   if (changed && typeof render === "function") render();
   setTimeout(apply,0);

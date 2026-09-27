@@ -193,72 +193,54 @@
     return picked.join(" ").slice(0,180);
   }
 
-  async function prepareCoverForOcr(file){
-    const bitmap=await createImageBitmap(file);
-    const max=1600;
-    const scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
-    const w=Math.max(1,Math.round(bitmap.width*scale));
-    const h=Math.max(1,Math.round(bitmap.height*scale));
-    const canvas=document.createElement("canvas");
-    canvas.width=w;canvas.height=h;
-    const ctx=canvas.getContext("2d",{willReadFrequently:true});
-    ctx.drawImage(bitmap,0,0,w,h);
-    bitmap.close?.();
-    const image=ctx.getImageData(0,0,w,h);
-    const p=image.data;
-    for(let i=0;i<p.length;i+=4){
-      const gray=.299*p[i]+.587*p[i+1]+.114*p[i+2];
-      const boosted=Math.max(0,Math.min(255,(gray-128)*1.35+128));
-      p[i]=p[i+1]=p[i+2]=boosted;
-    }
-    ctx.putImageData(image,0,0);
-    return canvas;
-  }
-
   async function identifyCover(file,dialog){
     const status=dialog.querySelector("#coverScanStatus");
     const queryBox=dialog.querySelector("#coverScanQuery");
     const searchBtn=dialog.querySelector("#coverScanSearch");
     searchBtn.disabled=true;
     queryBox.value="";
-    status.textContent="Préparation de l’image…";
+    status.textContent="Chargement de la reconnaissance…";
+    let worker=null;
+    let timer=null;
     try{
-      if(!window.Tesseract)throw new Error("Le module de reconnaissance n’a pas pu être chargé.");
-      const canvas=await prepareCoverForOcr(file);
-      status.textContent="Lecture du texte de la pochette…";
-      const worker=await Tesseract.createWorker("eng+fra",1,{
-        logger:m=>{
-          if(m.status==="recognizing text" && Number.isFinite(m.progress)){
-            status.textContent="Lecture de la pochette… "+Math.round(m.progress*100)+" %";
+      if(!window.Tesseract?.createWorker)throw new Error("Module OCR indisponible");
+      const timeout=new Promise((_,reject)=>{
+        timer=setTimeout(()=>reject(new Error("OCR trop long à démarrer")),30000);
+      });
+      const job=(async()=>{
+        worker=await Tesseract.createWorker("eng",1,{
+          logger:m=>{
+            if(m.status==="loading tesseract core") status.textContent="Chargement du moteur OCR…";
+            else if(m.status==="initializing tesseract") status.textContent="Initialisation de la reconnaissance…";
+            else if(m.status==="loading language traineddata") status.textContent="Chargement du dictionnaire…";
+            else if(m.status==="recognizing text" && Number.isFinite(m.progress)){
+              status.textContent="Lecture de la pochette… "+Math.round(m.progress*100)+" %";
+            }
           }
-        }
-      });
-      await worker.setParameters({
-        tessedit_pageseg_mode:"11",
-        preserve_interword_spaces:"1"
-      });
-      const result=await worker.recognize(canvas);
-      await worker.terminate();
+        });
+        await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM?.SPARSE_TEXT || "11"});
+        return await worker.recognize(file,{rotateAuto:true});
+      })();
+      const result=await Promise.race([job,timeout]);
+      clearTimeout(timer);
       const raw=result?.data?.text||"";
       const query=cleanCoverQuery(raw);
       if(query.length<3){
-        status.textContent="Je n’ai pas reconnu assez de texte. Essaie une photo plus droite, sans reflet, ou saisis quelques mots ci-dessous.";
+        status.textContent="Je n’ai pas reconnu assez de texte. Essaie une photo plus droite, sans reflet, ou saisis l’artiste / le titre ci-dessous.";
         queryBox.value=raw.replace(/\s+/g," ").trim().slice(0,180);
         searchBtn.disabled=!queryBox.value.trim();
         return;
       }
       queryBox.value=query;
       searchBtn.disabled=false;
-      status.textContent="Texte reconnu : recherche Discogs en cours…";
-      setTimeout(()=>{
-        if(!dialog.open)return;
-        dialog.close();
-        searchDiscogs(query);
-      },450);
+      status.textContent="Texte reconnu : "+query;
     }catch(err){
+      clearTimeout(timer);
       console.error("Cover OCR",err);
-      status.textContent="Identification impossible. Tu peux saisir l’artiste ou le titre manuellement.";
+      status.textContent="La lecture automatique n’a pas abouti. Saisis quelques mots (artiste + titre) puis appuie sur Rechercher.";
       searchBtn.disabled=!queryBox.value.trim();
+    }finally{
+      try{await worker?.terminate();}catch{}
     }
   }
 

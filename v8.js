@@ -247,45 +247,152 @@
   function ensureCoverScan(){
     let dialog=document.querySelector("#coverScanDialog");
     if(dialog)return dialog;
+
+    let cameraStream=null;
+    let analyzing=false;
+
+    const stopCamera=()=>{
+      cameraStream?.getTracks?.().forEach(t=>t.stop());
+      cameraStream=null;
+      const video=dialog?.querySelector("#coverLiveVideo");
+      if(video)video.srcObject=null;
+    };
+
+    const showPreviewBlob=blob=>{
+      const preview=dialog.querySelector("#coverScanPreview");
+      const img=preview.querySelector("img");
+      const old=img.dataset.objectUrl;
+      if(old)URL.revokeObjectURL(old);
+      const url=URL.createObjectURL(blob);
+      img.src=url;
+      img.dataset.objectUrl=url;
+      preview.hidden=false;
+    };
+
+    const analyzeBlob=async blob=>{
+      if(!blob||analyzing)return;
+      analyzing=true;
+      const captureBtn=dialog.querySelector("#coverCaptureBtn");
+      const startBtn=dialog.querySelector("#coverCameraStart");
+      if(captureBtn)captureBtn.disabled=true;
+      if(startBtn)startBtn.disabled=true;
+      showPreviewBlob(blob);
+      stopCamera();
+      try{
+        await identifyCover(blob,dialog);
+      }finally{
+        analyzing=false;
+        if(captureBtn)captureBtn.disabled=false;
+        if(startBtn)startBtn.disabled=false;
+      }
+    };
+
+    const startCamera=async()=>{
+      const status=dialog.querySelector("#coverScanStatus");
+      const video=dialog.querySelector("#coverLiveVideo");
+      const stage=dialog.querySelector("#coverCameraStage");
+      const captureBtn=dialog.querySelector("#coverCaptureBtn");
+      stopCamera();
+      status.textContent="Ouverture de la caméra…";
+      try{
+        if(!navigator.mediaDevices?.getUserMedia)throw new Error("Caméra navigateur indisponible");
+        cameraStream=await navigator.mediaDevices.getUserMedia({
+          video:{
+            facingMode:{ideal:"environment"},
+            width:{ideal:1920},
+            height:{ideal:1080}
+          },
+          audio:false
+        });
+        video.srcObject=cameraStream;
+        await video.play();
+        stage.hidden=false;
+        captureBtn.hidden=false;
+        status.textContent="Cadre la pochette bien de face, puis appuie sur Capturer.";
+      }catch(err){
+        console.error("Cover camera",err);
+        stopCamera();
+        stage.hidden=true;
+        captureBtn.hidden=true;
+        status.textContent="La caméra intégrée n’est pas disponible. Utilise « Choisir une photo » ci-dessous.";
+      }
+    };
+
+    const captureFrame=async()=>{
+      const video=dialog.querySelector("#coverLiveVideo");
+      const status=dialog.querySelector("#coverScanStatus");
+      if(!cameraStream||!video.videoWidth||!video.videoHeight){
+        status.textContent="La caméra n’est pas encore prête.";
+        return;
+      }
+      status.textContent="Capture de la pochette…";
+      const canvas=document.createElement("canvas");
+      const max=1800;
+      const scale=Math.min(1,max/Math.max(video.videoWidth,video.videoHeight));
+      canvas.width=Math.max(1,Math.round(video.videoWidth*scale));
+      canvas.height=Math.max(1,Math.round(video.videoHeight*scale));
+      const ctx=canvas.getContext("2d");
+      ctx.drawImage(video,0,0,canvas.width,canvas.height);
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",0.9));
+      if(!blob){
+        status.textContent="Impossible de capturer l’image. Essaie avec « Choisir une photo ».";
+        return;
+      }
+      await analyzeBlob(blob);
+    };
+
     dialog=document.createElement("dialog");
     dialog.id="coverScanDialog";
     dialog.className="modal small cover-scan-dialog";
     dialog.innerHTML=
       '<div class="modal-head"><div><p class="eyebrow">PHOTO</p><h2>Identifier une pochette</h2></div><button type="button" class="icon-btn" data-cover-close>✕</button></div>'+
-      '<p>Photographie la pochette bien de face. Vinylothèque lit le texte directement sur ton appareil puis cherche l’édition dans Discogs.</p>'+
-      '<input id="coverScanInput" type="file" accept="image/*" capture="environment" hidden>'+
-      '<button type="button" class="btn primary" id="coverScanTake">📷 Prendre une photo</button>'+
-      '<div id="coverScanPreview" class="cover-scan-preview" hidden><img alt="Pochette photographiée"></div>'+
-      '<p id="coverScanStatus" class="hint">Aucune image sélectionnée.</p>'+
+      '<p>La caméra s’ouvre directement dans Vinylothèque : tu ne quittes plus l’application.</p>'+
+      '<button type="button" class="btn primary cover-camera-start" id="coverCameraStart">📷 Ouvrir la caméra</button>'+
+      '<div id="coverCameraStage" class="cover-camera-stage" hidden><video id="coverLiveVideo" autoplay playsinline muted></video><div class="cover-camera-guide"></div></div>'+
+      '<button type="button" class="btn primary cover-capture-btn" id="coverCaptureBtn" hidden>● Capturer la pochette</button>'+
+      '<div class="cover-photo-fallback"><span>ou</span><button type="button" class="btn secondary" id="coverChoosePhoto">🖼 Choisir une photo</button></div>'+
+      '<input id="coverScanInput" type="file" accept="image/*" hidden>'+
+      '<div id="coverScanPreview" class="cover-scan-preview" hidden><img alt="Pochette capturée"></div>'+
+      '<p id="coverScanStatus" class="hint">Ouvre la caméra puis cadre la pochette.</p>'+
       '<label class="cover-query-label">Texte reconnu / recherche<input id="coverScanQuery" type="text" placeholder="Artiste et titre"></label>'+
       '<button type="button" class="btn secondary cover-search-btn" id="coverScanSearch" disabled>Rechercher avec ce texte</button>'+
-      '<p class="hint cover-privacy">La photo n’est pas envoyée à un service de reconnaissance : l’analyse se fait dans le navigateur.</p>';
+      '<p class="hint cover-privacy">La photo reste sur ton appareil pour la reconnaissance du texte.</p>';
     document.body.appendChild(dialog);
+
     const input=dialog.querySelector("#coverScanInput");
-    const preview=dialog.querySelector("#coverScanPreview");
     const queryBox=dialog.querySelector("#coverScanQuery");
-    dialog.querySelector("[data-cover-close]").addEventListener("click",()=>dialog.close());
-    dialog.querySelector("#coverScanTake").addEventListener("click",()=>input.click());
+
+    dialog.querySelector("[data-cover-close]").addEventListener("click",()=>{
+      stopCamera();
+      dialog.close();
+    });
+    dialog.addEventListener("close",stopCamera);
+    dialog.querySelector("#coverCameraStart").addEventListener("click",startCamera);
+    dialog.querySelector("#coverCaptureBtn").addEventListener("click",captureFrame);
+    dialog.querySelector("#coverChoosePhoto").addEventListener("click",()=>input.click());
     dialog.querySelector("#coverScanSearch").addEventListener("click",()=>{
       const q=queryBox.value.trim();if(!q)return;
-      dialog.close();searchDiscogs(q);
+      stopCamera();dialog.close();searchDiscogs(q);
     });
-    queryBox.addEventListener("input",()=>{dialog.querySelector("#coverScanSearch").disabled=!queryBox.value.trim();});
+    queryBox.addEventListener("input",()=>{
+      dialog.querySelector("#coverScanSearch").disabled=!queryBox.value.trim();
+    });
     queryBox.addEventListener("keydown",e=>{
       if(e.key==="Enter" && queryBox.value.trim()){
-        e.preventDefault();dialog.close();searchDiscogs(queryBox.value.trim());
+        e.preventDefault();stopCamera();dialog.close();searchDiscogs(queryBox.value.trim());
       }
     });
     input.addEventListener("change",async e=>{
-      const file=e.target.files?.[0];if(!file)return;
-      const old=preview.querySelector("img").dataset.objectUrl;
-      if(old)URL.revokeObjectURL(old);
-      const url=URL.createObjectURL(file);
-      const img=preview.querySelector("img");
-      img.src=url;img.dataset.objectUrl=url;preview.hidden=false;
-      await identifyCover(file,dialog);
+      const file=e.target.files?.[0];
       input.value="";
+      if(!file)return;
+      await analyzeBlob(file);
     });
+
+    dialog.openCoverCamera=()=>{
+      dialog.querySelector("#coverScanStatus").textContent="Ouverture de la caméra…";
+      startCamera();
+    };
     return dialog;
   }
 
@@ -296,7 +403,7 @@
     btn.type="button";btn.className="btn secondary";btn.dataset.v8CoverScan="1";btn.textContent="📷 Identifier une pochette";
     const hint=dialog.querySelector("#discogsHint");
     hint?.insertAdjacentElement("afterend",btn);
-    btn.addEventListener("click",()=>ensureCoverScan().showModal());
+    btn.addEventListener("click",()=>{const d=ensureCoverScan();d.showModal();setTimeout(()=>d.openCoverCamera?.(),80);});
   }
 
   function styleFormSelects(){
@@ -310,7 +417,7 @@
     .personal-card-rating{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:9px}.personal-stars{color:#9a7a23;font-weight:900;letter-spacing:.02em}.personal-status{font-size:.68rem;font-weight:800;background:#fff7dc;border:1px solid #ead27d;border-radius:999px;padding:4px 7px}
     body.wall-open{overflow:hidden}.cover-wall-view{position:fixed;inset:0;z-index:125;background:#151515;color:#fff;overflow:auto;padding-bottom:30px}.cover-wall-top{position:sticky;top:0;z-index:3;display:grid;grid-template-columns:auto 1fr auto;gap:15px;align-items:center;padding:12px clamp(12px,4vw,36px);background:rgba(21,21,21,.94);backdrop-filter:blur(14px);border-bottom:1px solid #333}.cover-wall-top h2{margin:0;font-size:1.35rem}.cover-wall-top .eyebrow{color:#a9a39b}.cover-wall-top .album-back{color:#fff}.wall-size{display:flex;gap:4px}.wall-size button{width:34px;height:34px;border:1px solid #555;background:#292929;color:#ddd;border-radius:9px;cursor:pointer}.wall-size button.active{background:#f4e3ad;color:#18130a;border-color:#f4e3ad}
     .cover-wall-grid{--cols:6;display:grid;grid-template-columns:repeat(var(--cols),1fr);gap:4px;padding:4px}.cover-wall-grid.cols-3{--cols:5}.cover-wall-grid.cols-4{--cols:7}.cover-wall-grid.cols-5{--cols:9}.wall-cover{position:relative;aspect-ratio:1;border:0;padding:0;background:#292929;cursor:pointer;overflow:hidden}.wall-cover img,.wall-empty{width:100%;height:100%;object-fit:cover;display:grid;place-items:center;font-size:2rem}.wall-cover:active{transform:scale(.97)}.wall-rating{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.75);color:#f4d570;border-radius:999px;padding:3px 5px;font-size:.62rem;font-weight:900}
-    .cover-scan-preview{margin-top:14px}.cover-scan-preview img{display:block;width:min(100%,320px);aspect-ratio:1;object-fit:cover;border-radius:16px;margin-bottom:8px}.cover-scan-preview p{color:var(--muted);font-size:.82rem}.cover-query-label{display:grid;gap:6px;margin-top:12px;font-size:.8rem;font-weight:800}.cover-query-label input{font:inherit;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff}.cover-search-btn{width:100%;margin-top:9px}.cover-privacy{margin-top:10px;font-size:.72rem!important}
+    .cover-camera-start{width:100%}.cover-camera-stage{position:relative;margin-top:12px;border-radius:16px;overflow:hidden;background:#111;aspect-ratio:3/4}.cover-camera-stage video{width:100%;height:100%;object-fit:cover;display:block}.cover-camera-guide{position:absolute;inset:8%;border:2px solid rgba(255,255,255,.8);border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.15);pointer-events:none}.cover-capture-btn{width:100%;margin-top:10px}.cover-photo-fallback{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px}.cover-photo-fallback span{font-size:.72rem;color:var(--muted);text-transform:uppercase}.cover-scan-preview{margin-top:14px}.cover-scan-preview img{display:block;width:min(100%,320px);aspect-ratio:1;object-fit:cover;border-radius:16px;margin-bottom:8px}.cover-scan-preview p{color:var(--muted);font-size:.82rem}.cover-query-label{display:grid;gap:6px;margin-top:12px;font-size:.8rem;font-weight:800}.cover-query-label input{font:inherit;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff}.cover-search-btn{width:100%;margin-top:9px}.cover-privacy{margin-top:10px;font-size:.72rem!important}
     .dash-actions{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))!important}
     @media(max-width:700px){.cover-wall-grid.cols-3{--cols:3}.cover-wall-grid.cols-4{--cols:4}.cover-wall-grid.cols-5{--cols:5}.cover-wall-top{grid-template-columns:auto 1fr}.wall-size{grid-column:1/-1;justify-content:center}.dash-actions{grid-template-columns:1fr!important}}
   `;
